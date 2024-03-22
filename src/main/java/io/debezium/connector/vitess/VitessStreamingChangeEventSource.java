@@ -21,6 +21,7 @@ import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
 import io.debezium.util.DelayStrategy;
+import io.grpc.Status;
 
 /**
  * Read events from source and dispatch each event using {@link EventDispatcher} to the {@link
@@ -76,7 +77,13 @@ public class VitessStreamingChangeEventSource implements StreamingChangeEventSou
             }
         }
         catch (Throwable e) {
-            errorHandler.setProducerThrowable(e);
+            Status s = Status.fromThrowable(e);
+            if (s.getCode() == Status.Code.CANCELLED && s.getCause() instanceof VStreamCopyCompletedEventException) {
+                LOGGER.info("VStream stopped after COPY_COMPLETED event");
+            }
+            else {
+                errorHandler.setProducerThrowable(e);
+            }
         }
         finally {
             try {

@@ -18,9 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
+import io.debezium.connector.vitess.VStreamCopyCompletedEventException;
 import io.debezium.connector.vitess.Vgtid;
 import io.debezium.connector.vitess.VitessConnector;
 import io.debezium.connector.vitess.VitessConnectorConfig;
+import io.debezium.connector.vitess.VitessConnectorConfig.SnapshotMode;
 import io.debezium.connector.vitess.VitessDatabaseSchema;
 import io.debezium.util.Strings;
 import io.grpc.ChannelCredentials;
@@ -31,12 +33,15 @@ import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
+import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import io.vitess.client.Proto;
 import io.vitess.client.grpc.StaticAuthCredentials;
 import io.vitess.proto.Topodata;
 import io.vitess.proto.Vtgate;
+import io.vitess.proto.Vtgate.VStreamRequest;
 import io.vitess.proto.grpc.VitessGrpc;
 
 import binlogdata.Binlogdata;
@@ -100,13 +105,15 @@ public class VitessReplicationConnection implements ReplicationConnection {
             stub = MetadataUtils.attachHeaders(stub, metadata);
         }
 
-        StreamObserver<Vtgate.VStreamResponse> responseObserver = new StreamObserver<Vtgate.VStreamResponse>() {
+        StreamObserver<Vtgate.VStreamResponse> responseObserver = new ClientResponseObserver<Vtgate.VStreamRequest, Vtgate.VStreamResponse>() {
+            private ClientCallStreamObserver<VStreamRequest> requestStream;
             private List<VEvent> bufferedEvents = new ArrayList<>();
             private Vgtid newVgtid;
             private boolean beginEventSeen;
             private boolean commitEventSeen;
             private int numOfRowEvents;
             private int numResponses;
+            private boolean copyCompletedEventSeen;
 
             @Override
             public void onNext(Vtgate.VStreamResponse response) {
@@ -174,6 +181,13 @@ public class VitessReplicationConnection implements ReplicationConnection {
                             }
                             commitEventSeen = true;
                             break;
+                        case COPY_COMPLETED:
+                            // After all shards are copied, Vitess will send a final COPY_COMPLETED event.
+                            // See: https://github.com/vitessio/vitess/blob/v19.0.0/go/vt/vtgate/vstream_manager.go#L791-L808
+                            if (event.getKeyspace() == "" && event.getShard() == "") {
+                                copyCompletedEventSeen = true;
+                            }
+                            continue;
                         case DDL:
                         case OTHER:
                             // If receiving DDL and OTHER, process them immediately to rotate vgtid in offset.
@@ -190,14 +204,14 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
                 // We only proceed when we receive a complete transaction after seeing both BEGIN and COMMIT events,
                 // OR if sendNow flag is true (meaning we should process buffered events immediately).
-                if ((!beginEventSeen || !commitEventSeen) && !sendNow) {
+                if ((!beginEventSeen || !commitEventSeen) && !sendNow && !copyCompletedEventSeen) {
                     LOGGER.debug("Received partial transaction: number of responses so far is {}", numResponses);
                     return;
                 }
                 if (numResponses > 1) {
                     LOGGER.debug("Processing multi-response transaction: number of responses is {}", numResponses);
                 }
-                if (newVgtid == null) {
+                if (newVgtid == null && !copyCompletedEventSeen) {
                     LOGGER.warn("Skipping because no vgtid is found in buffered event types: {}",
                             bufferedEvents.stream().map(VEvent::getType).map(Objects::toString).collect(Collectors.joining(", ")));
                     reset();
@@ -224,6 +238,11 @@ public class VitessReplicationConnection implements ReplicationConnection {
                 }
                 finally {
                     reset();
+                }
+
+                if (copyCompletedEventSeen && config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
+                    LOGGER.info("Cancel the copy operation after receiving COPY_COMPLETED event");
+                    requestStream.cancel("Cancel the copy operation after receiving COPY_COMPLETED event", new VStreamCopyCompletedEventException());
                 }
             }
 
@@ -259,6 +278,11 @@ public class VitessReplicationConnection implements ReplicationConnection {
                 LOGGER.error(msg);
                 error.compareAndSet(null, new DebeziumException(msg));
                 reset();
+            }
+
+            @Override
+            public void beforeStart(ClientCallStreamObserver<VStreamRequest> requestStream) {
+                this.requestStream = requestStream;
             }
         };
 
