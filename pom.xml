@@ -168,6 +168,13 @@
             <artifactId>debezium-storage-file</artifactId>
             <version>${version.debezium}</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-storage-kafka</artifactId>
+            <version>${version.debezium}</version>
+        </dependency>
+
         <!-- Kafka-->
         <dependency>
             <groupId>org.apache.kafka</groupId>
