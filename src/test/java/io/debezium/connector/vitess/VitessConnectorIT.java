@@ -939,6 +939,57 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TestHelper.PK_FIELD);
     }
 
+    @Test
+    public void testInitialOnlySnapshot() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        int expectedSnapshotRecordsCount = 2;
+        String rowValue = "(1, 1, 12, 12, 123, 123, 1234, 1234, 12345, 12345, 18446744073709551615, 1.5, 2.5, 12.34, true)";
+        String tableName = "numeric_table";
+        StringBuilder insertRows = new StringBuilder().append("INSERT INTO numeric_table ("
+                + "tinyint_col,"
+                + "tinyint_unsigned_col,"
+                + "smallint_col,"
+                + "smallint_unsigned_col,"
+                + "mediumint_col,"
+                + "mediumint_unsigned_col,"
+                + "int_col,"
+                + "int_unsigned_col,"
+                + "bigint_col,"
+                + "bigint_unsigned_col,"
+                + "bigint_unsigned_overflow_col,"
+                + "float_col,"
+                + "double_col,"
+                + "decimal_col,"
+                + "boolean_col)"
+                + " VALUES " + rowValue);
+        for (int i = 1; i < expectedSnapshotRecordsCount; i++) {
+            insertRows.append(", ").append(rowValue);
+        }
+
+        String insertRowsStatement = insertRows.toString();
+        TestHelper.execute(insertRowsStatement);
+
+        // Take initial snapshot.
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + tableName;
+        startInitialOnlySnapshotConnector(Function.identity(), false, false, 1,
+                -1, -1, tableInclude, TestHelper.TEST_SHARD);
+
+        // Consume snapshot rows.
+        consumer = testConsumer(expectedSnapshotRecordsCount, tableInclude);
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+
+        assertRecordInserted(TEST_UNSHARDED_KEYSPACE + ".numeric_table", TestHelper.PK_FIELD);
+
+        System.out.println("INSERTING MORE ROWS");
+        // Add more rows.
+        TestHelper.execute(insertRowsStatement);
+
+        System.out.println("WAITING FOR INSERTED ROWS");
+        // Try consuming new rows, there should be no change to # of consumed rows.
+        consumer = testConsumer(0, tableInclude);
+        consumer.await(Math.min(2, TestHelper.waitTimeForRecords()), TimeUnit.SECONDS);
+    }
+
     private void testOffsetStorage(boolean offsetStoragePerTask) throws Exception {
         TestHelper.executeDDL("vitess_create_tables.ddl", TEST_UNSHARDED_KEYSPACE);
 
@@ -1009,6 +1060,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
                 .until(() -> logInterceptor.containsMessage("Started VStream"));
     }
 
+    private void waitForVStreamStopped(final LogInterceptor logInterceptor) {
+        // The inserts must happen only after VStream is started with some buffer time.
+        Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
+                .pollInterval(Duration.ofSeconds(1))
+                .until(() -> logInterceptor.containsMessage("Cancel the copy operation after receiving COPY_COMPLETED event"));
+    }
+
     private void startConnector() throws InterruptedException {
         startConnector(false, TestHelper.TEST_SHARD);
     }
@@ -1060,6 +1118,21 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         String taskId = offsetStoragePerTask ? VitessConnector.getTaskKeyName(0, 1, gen) : null;
         waitForStreamingRunning(taskId);
         waitForVStreamStarted(logInterceptor);
+    }
+
+    private void startInitialOnlySnapshotConnector(Function<Configuration.Builder, Configuration.Builder> customConfig,
+                                                   boolean hasMultipleShards, boolean offsetStoragePerTask,
+                                                   int numTasks, int gen, int prevNumTasks, String tableInclude,
+                                                   String shards)
+            throws InterruptedException {
+        Configuration.Builder configBuilder = customConfig.apply(TestHelper.defaultConfig(
+                hasMultipleShards, offsetStoragePerTask, numTasks, gen, prevNumTasks, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL_ONLY, shards));
+        final LogInterceptor logInterceptor = new LogInterceptor(VitessReplicationConnection.class);
+        start(VitessConnector.class, configBuilder.build());
+        System.out.println("WAITING FOR VSTREAM STOPPED");
+        waitForVStreamStopped(logInterceptor);
+        System.out.println("VSTREAM STOPPED");
+        stopConnector();
     }
 
     private void waitForStreamingRunning(String taskId) throws InterruptedException {

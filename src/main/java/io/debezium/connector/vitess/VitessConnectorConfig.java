@@ -87,6 +87,11 @@ public class VitessConnectorConfig extends HistorizedRelationalDatabaseConnector
         INITIAL("initial"),
 
         /**
+         * Perform an initial snapshot when starting, if it does not detect a value in its offsets topic. Stops after VStream copy completed.
+         */
+        INITIAL_ONLY("initial_only"),
+
+        /**
          * Never perform an initial snapshot and only receive new data changes.
          */
         NEVER("never");
@@ -449,6 +454,7 @@ public class VitessConnectorConfig extends HistorizedRelationalDatabaseConnector
             .withDescription("The criteria for running a snapshot upon startup of the connector. "
                     + "Options include: "
                     + "'initial' (the default) to specify the connector should always perform an initial sync when required; "
+                    + "'initial_only' to specify the connector should always perform an initial sync when required, and stop after VStream copy completed; "
                     + "'never' to specify the connector should never perform an initial sync ");
 
     public static final Field BIGINT_UNSIGNED_HANDLING_MODE = Field.create("bigint.unsigned.handling.mode")
@@ -562,7 +568,7 @@ public class VitessConnectorConfig extends HistorizedRelationalDatabaseConnector
     }
 
     public List<String> getGtid() {
-        if (getSnapshotMode() == SnapshotMode.INITIAL) {
+        if (getSnapshotMode() == SnapshotMode.INITIAL || getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
             return EMPTY_GTID_LIST;
         }
         List<String> value = getConfig().getStrings(GTID, CSV_DELIMITER);
