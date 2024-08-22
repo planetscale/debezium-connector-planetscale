@@ -351,6 +351,11 @@ public class VitessReplicationConnection implements ReplicationConnection {
                 List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(),
                         config.getColumnFilter(), allColumns, table);
                 sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
+                List<String> escapedColumns = new ArrayList<String>();
+                for (String includedColumn : includedColumns) {
+                    escapedColumns.add(String.format("`%s`", includedColumn));
+                }
+                sql = String.format("select %s from `%s`", String.join(",", escapedColumns), table);
             }
             tableSQL.put(table, sql);
         }
