@@ -53,6 +53,7 @@ import io.debezium.data.VerifyRecord;
 import io.debezium.doc.FixFor;
 import io.debezium.embedded.EmbeddedEngine;
 import io.debezium.junit.logging.LogInterceptor;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 import io.debezium.util.Collect;
 import io.debezium.util.Testing;
@@ -811,6 +812,59 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         TestHelper.execute(INSERT_STRING_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
         // We should receive record from numeeric_table
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TestHelper.PK_FIELD);
+    }
+
+    @Test
+    public void testTableIncludeFilterWithSnapshotSelectStatementOverrides() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + "numeric_table";
+        startConnector((builder) -> builder.with(
+                RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE,
+                TEST_UNSHARDED_KEYSPACE + "." + "numeric_table").with(
+                        Field.create(RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE.name() + "." + TEST_UNSHARDED_KEYSPACE + "."
+                                + "numeric_table"),
+                        "select id, tinyint_col from numeric_table where id > 1"),
+                false, false, 1, -1, -1, tableInclude, "");
+        assertConnectorIsRunning();
+        int expectedRecordsCount = 1;
+        consumer = testConsumer(expectedRecordsCount);
+
+        // We should not receive record from string_table
+        TestHelper.execute(INSERT_STRING_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should not this receive record from numeric_table
+        TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should receive this record from numeric_table
+        final List<SchemaAndValueField> fields = new ArrayList<>();
+        fields.addAll(
+                Arrays.asList(
+                        new SchemaAndValueField("tinyint_col", SchemaBuilder.OPTIONAL_INT16_SCHEMA, (short) 2)));
+        assertInsert("INSERT INTO numeric_table (id, tinyint_col) VALUES (2, 2);", fields, TestHelper.PK_FIELD);
+    }
+
+    @Test
+    public void testSnapshotSelectStatementOverrides() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        startConnector((builder) -> builder.with(
+                RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE,
+                TEST_UNSHARDED_KEYSPACE + "." + "numeric_table").with(
+                        Field.create(RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE.name() + "." + TEST_UNSHARDED_KEYSPACE + "."
+                                + "numeric_table"),
+                        "select id, tinyint_col from numeric_table where id > 1"),
+                false, false, 1, -1, -1, "", "");
+        assertConnectorIsRunning();
+        int expectedRecordsCount = 1;
+        consumer = testConsumer(expectedRecordsCount);
+
+        // We should not receive record from string_table
+        assertInsert(INSERT_STRING_TYPES_STMT, schemasAndValuesForStringTypes(), TestHelper.PK_FIELD);
+        // We should not this receive record from numeric_table
+        TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should receive this record from numeric_table
+        final List<SchemaAndValueField> fields = new ArrayList<>();
+        fields.addAll(
+                Arrays.asList(
+                        new SchemaAndValueField("tinyint_col", SchemaBuilder.OPTIONAL_INT16_SCHEMA, (short) 2)));
+        assertInsert("INSERT INTO numeric_table (id, tinyint_col) VALUES (2, 2);", fields, TestHelper.PK_FIELD);
     }
 
     @Test
