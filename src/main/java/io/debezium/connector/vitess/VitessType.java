@@ -134,14 +134,18 @@ public class VitessType {
             case "TEXT":
             case "JSON":
             case "DECIMAL":
-            case "TIME":
-            case "DATE":
-            case "DATETIME":
-            case "TIMESTAMP":
             case "YEAR":
                 return new VitessType(type, Types.VARCHAR);
+            case "DATE":
+                return new VitessType(type, Types.DATE);
+            case "DATETIME":
+                return new VitessType(type, Types.TIMESTAMP);
+            case "TIME":
+                return new VitessType(type, Types.TIME);
+            case "TIMESTAMP":
+                return new VitessType(type, Types.TIMESTAMP_WITH_TIMEZONE);
             case "FLOAT32":
-                return new VitessType(type, Types.FLOAT);
+                return new VitessType(type, Types.DOUBLE);
             case "FLOAT64":
                 return new VitessType(type, Types.DOUBLE);
             default:

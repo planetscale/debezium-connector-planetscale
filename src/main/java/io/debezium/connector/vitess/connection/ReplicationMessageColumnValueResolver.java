@@ -5,6 +5,9 @@
  */
 package io.debezium.connector.vitess.connection;
 
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 
 import io.debezium.connector.vitess.VitessType;
@@ -34,6 +37,14 @@ public class ReplicationMessageColumnValueResolver {
             case Types.BLOB:
             case Types.BINARY:
                 return value.asBytes();
+            case Types.DATE:
+                return Date.valueOf(value.asString());
+            case Types.TIME:
+                return Time.valueOf(value.asString());
+            case Types.TIMESTAMP:
+                return Timestamp.valueOf(value.asString());
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return value.asString();
             case Types.VARCHAR:
                 return value.asString();
             case Types.FLOAT:
