@@ -5,7 +5,15 @@
  */
 package io.debezium.connector.vitess;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -13,12 +21,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.DebeziumException;
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.ConfigDefinition;
 import io.debezium.config.Configuration;
@@ -26,10 +40,14 @@ import io.debezium.config.EnumeratedValue;
 import io.debezium.config.Field;
 import io.debezium.config.Field.ValidationOutput;
 import io.debezium.connector.SourceInfoStructMaker;
+import io.debezium.connector.vitess.connection.BasicAuthenticationInterceptor;
 import io.debezium.connector.vitess.connection.VitessTabletType;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.relational.ColumnFilterMode;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
+import io.debezium.util.Strings;
+import io.grpc.ChannelCredentials;
+import io.grpc.TlsChannelCredentials;
 
 /**
  * Vitess connector configuration, including its specific configurations and the common
@@ -175,6 +193,49 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
             return mode;
         }
     }
+
+    public static final Field SSL_KEYSTORE = Field.create(DATABASE_CONFIG_PREFIX + "ssl.keystore")
+            .withDisplayName("SSL Keystore")
+            .withType(Type.STRING)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 1))
+            .withWidth(Width.LONG)
+            .withImportance(ConfigDef.Importance.MEDIUM)
+            .withDescription("The location of the key store file. "
+                    + "This is optional and can be used for two-way authentication between the client and the Vitess Server.");
+
+    public static final Field SSL_KEYSTORE_PASSWORD = Field.create(DATABASE_CONFIG_PREFIX + "ssl.keystore.password")
+            .withDisplayName("SSL Keystore Password")
+            .withType(Type.PASSWORD)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 2))
+            .withWidth(Width.MEDIUM)
+            .withImportance(ConfigDef.Importance.MEDIUM)
+            .withDescription("The password for the key store file. "
+                    + "This is optional and only needed if 'vitess.ssl.keystore' is configured.");
+
+    public static final Field SSL_TRUSTSTORE = Field.create(DATABASE_CONFIG_PREFIX + "ssl.truststore")
+            .withDisplayName("SSL Truststore")
+            .withType(Type.STRING)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 3))
+            .withWidth(Width.LONG)
+            .withImportance(ConfigDef.Importance.MEDIUM)
+            .withDescription("The location of the trust store file for the server certificate verification.");
+
+    public static final Field SSL_TRUSTSTORE_PASSWORD = Field.create(DATABASE_CONFIG_PREFIX + "ssl.truststore.password")
+            .withDisplayName("SSL Truststore Password")
+            .withType(Type.PASSWORD)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 4))
+            .withWidth(Width.MEDIUM)
+            .withImportance(ConfigDef.Importance.MEDIUM)
+            .withDescription("The password for the trust store file. "
+                    + "Used to check the integrity of the truststore, and unlock the truststore.");
+
+    public static final Field ADD_BASIC_AUTHENTICATION_GRPC_HEADER = Field.create(VITESS_CONFIG_GROUP_PREFIX + "set.basic.authentication.header")
+            .withDisplayName("Set to true if VTGate uses basic authentication")
+            .withType(Type.BOOLEAN)
+            .withWidth(Width.SHORT)
+            .withImportance(ConfigDef.Importance.HIGH)
+            .withDescription(
+                    "Flag to add Basic : authorization header to requests sent to vtgate gRPC service.");
 
     public static final Field VTGATE_HOST = Field.create(DATABASE_CONFIG_PREFIX + JdbcConfiguration.HOSTNAME)
             .withDisplayName("Vitess database hostname")
@@ -380,6 +441,10 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
             .edit()
             .name("Vitess")
             .type(
+                    SSL_KEYSTORE,
+                    SSL_KEYSTORE_PASSWORD,
+                    SSL_TRUSTSTORE,
+                    SSL_TRUSTSTORE_PASSWORD,
                     KEYSPACE,
                     SHARD,
                     GTID,
@@ -495,6 +560,28 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
         return getConfig().getString(VTGATE_HOST);
     }
 
+    public String sslKeyStore() {
+        return getConfig().getString(SSL_KEYSTORE);
+    }
+
+    public char[] sslKeyStorePassword() {
+        String password = getConfig().getString(SSL_KEYSTORE_PASSWORD);
+        return Strings.isNullOrBlank(password) ? null : password.toCharArray();
+    }
+
+    public String sslTrustStore() {
+        return getConfig().getString(SSL_TRUSTSTORE);
+    }
+
+    public char[] sslTrustStorePassword() {
+        String password = getConfig().getString(SSL_TRUSTSTORE_PASSWORD);
+        return Strings.isNullOrBlank(password) ? null : password.toCharArray();
+    }
+
+    public boolean addBasicAuthenticationHeader() {
+        return getConfig().getBoolean(ADD_BASIC_AUTHENTICATION_GRPC_HEADER);
+    }
+
     public int getVtgatePort() {
         return getConfig().getInteger(VTGATE_PORT);
     }
@@ -505,6 +592,11 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
 
     public String getVtgatePassword() {
         return getConfig().getString(VTGATE_PASSWORD);
+    }
+
+    public boolean isStringConfigSet(Field configName) {
+        String configValue = getConfig().getString(configName);
+        return !Strings.isNullOrBlank(configValue);
     }
 
     public String getTabletType() {
@@ -581,5 +673,81 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
     public BigIntUnsignedHandlingMode getBigIntUnsgnedHandlingMode() {
         return BigIntUnsignedHandlingMode.parse(getConfig().getString(BIGINT_UNSIGNED_HANDLING_MODE),
                 BIGINT_UNSIGNED_HANDLING_MODE.defaultValueAsString());
+    }
+
+    public boolean isAuthenticated() {
+        return isStringConfigSet(VTGATE_USER) && isStringConfigSet(VTGATE_PASSWORD);
+    }
+
+    public BasicAuthenticationInterceptor getBasicAuthenticationInterceptor() {
+        if (!isAuthenticated() || !addBasicAuthenticationHeader()) {
+            return null;
+        }
+
+        return new BasicAuthenticationInterceptor(getVtgateUsername(), getVtgatePassword());
+    }
+
+    public ChannelCredentials getTLSChannelCredentialsFromJKSFile() {
+        final TlsChannelCredentials.Builder tlsBuilder = TlsChannelCredentials.newBuilder();
+        final String keyFilename = sslKeyStore();
+        final char[] keyPasswordArray = sslKeyStorePassword();
+
+        final char[] trustPasswordArray = sslTrustStorePassword();
+        final String trustFilename = sslTrustStore();
+
+        if (Strings.isNullOrEmpty(keyFilename) && Strings.isNullOrEmpty(trustFilename)) {
+            return null;
+        }
+
+        if (!Strings.isNullOrEmpty(trustFilename)) {
+            try {
+                KeyStore ks = loadKeyStore(trustFilename, trustPasswordArray);
+                TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                tmf.init(ks);
+                final TrustManager[] trustManagers = tmf.getTrustManagers();
+                tlsBuilder.trustManager(trustManagers);
+            }
+            catch (KeyStoreException | NoSuchAlgorithmException e) {
+                throw new DebeziumException("Could not load truststore", e);
+            }
+        }
+
+        if (!Strings.isNullOrEmpty(keyFilename)) {
+            try {
+                KeyStore ks = loadKeyStore(keyFilename, keyPasswordArray);
+                KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                kmf.init(ks, keyPasswordArray);
+                final KeyManager[] keyManagers = kmf.getKeyManagers();
+                tlsBuilder.keyManager(keyManagers);
+            }
+            catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException e) {
+                throw new DebeziumException("Could not load keystore", e);
+            }
+        }
+
+        return tlsBuilder.build();
+    }
+
+    /**
+     * Read JKS type keystore/truststore file according related password.
+     */
+    private KeyStore loadKeyStore(String filePath, char[] passwordArray) {
+        try (InputStream in = new FileInputStream(filePath)) {
+            KeyStore ks = KeyStore.getInstance("JKS");
+            ks.load(in, passwordArray);
+            return ks;
+        }
+        catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException e) {
+            throw new DebeziumException("Error loading keystore", e);
+        }
+    }
+
+    public ChannelCredentials getTLSChannelCredentials() {
+        ChannelCredentials tlsChannelCredentials = getTLSChannelCredentialsFromJKSFile();
+        if (tlsChannelCredentials != null) {
+            return tlsChannelCredentials;
+        }
+
+        return null;
     }
 }

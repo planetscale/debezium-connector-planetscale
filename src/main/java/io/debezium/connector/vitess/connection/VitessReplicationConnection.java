@@ -23,6 +23,8 @@ import io.debezium.connector.vitess.VitessConnector;
 import io.debezium.connector.vitess.VitessConnectorConfig;
 import io.debezium.connector.vitess.VitessDatabaseSchema;
 import io.debezium.util.Strings;
+import io.grpc.ChannelCredentials;
+import io.grpc.Grpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Metadata;
@@ -64,8 +66,9 @@ public class VitessReplicationConnection implements ReplicationConnection {
      * @throws StatusRuntimeException if the connection is not valid, or SQL statement can not be successfully exected
      */
     public Vtgate.ExecuteResponse execute(String sqlStatement) {
-        LOGGER.info("Executing sqlStament {}", sqlStatement);
-        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
+        ChannelCredentials tlsBuilder = config.getTLSChannelCredentials();
+        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize(),
+                tlsBuilder);
         managedChannel.compareAndSet(null, channel);
 
         Vtgate.ExecuteRequest request = Vtgate.ExecuteRequest.newBuilder()
@@ -79,7 +82,10 @@ public class VitessReplicationConnection implements ReplicationConnection {
                                Vgtid vgtid, ReplicationMessageProcessor processor, AtomicReference<Throwable> error) {
         Objects.requireNonNull(vgtid);
 
-        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
+        ChannelCredentials tlsBuilder = config.getTLSChannelCredentials();
+        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize(),
+                tlsBuilder);
+
         managedChannel.compareAndSet(null, channel);
 
         VitessGrpc.VitessStub stub = newStub(channel);
@@ -262,12 +268,21 @@ public class VitessReplicationConnection implements ReplicationConnection {
         // Add filtering for whitelist tables
         Binlogdata.Filter.Builder filterBuilder = Binlogdata.Filter.newBuilder();
         if (!Strings.isNullOrEmpty(config.tableIncludeList())) {
+
             final String keyspace = config.getKeyspace();
             final List<String> allTables = VitessConnector.getKeyspaceTables(config);
             List<String> includedTables = VitessConnector.getIncludedTables(config.getKeyspace(),
                     config.tableIncludeList(), allTables);
+
             for (String table : includedTables) {
                 String sql = "select * from `" + table + "`";
+                if (config.isColumnsFiltered()) {
+                    List<String> allColumns = VitessConnector.getTableColumns(config, table);
+                    List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(), config.getColumnFilter(), allColumns, table);
+                    sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
+                }
+
+                LOGGER.info("Running Sql Query: {}", sql);
                 // See rule in: https://github.com/vitessio/vitess/blob/release-14.0/go/vt/vttablet/tabletserver/vstreamer/planbuilder.go#L316
                 Binlogdata.Rule rule = Binlogdata.Rule.newBuilder().setMatch(table).setFilter(sql).build();
                 LOGGER.info("Add vstream table filtering: {}", rule.getMatch());
@@ -292,12 +307,12 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
     private VitessGrpc.VitessStub newStub(ManagedChannel channel) {
         VitessGrpc.VitessStub stub = VitessGrpc.newStub(channel);
-        return withCredentials(stub);
+        return withBasicAuthentication(withCredentials(stub));
     }
 
     private VitessGrpc.VitessBlockingStub newBlockingStub(ManagedChannel channel) {
         VitessGrpc.VitessBlockingStub stub = VitessGrpc.newBlockingStub(channel);
-        return withCredentials(stub);
+        return withBasicAuthentication(withCredentials(stub));
     }
 
     private <T extends AbstractStub<T>> T withCredentials(T stub) {
@@ -308,13 +323,34 @@ public class VitessReplicationConnection implements ReplicationConnection {
         return stub;
     }
 
-    private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize) {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(vtgateHost, vtgatePort)
-                .usePlaintext()
-                .maxInboundMessageSize(maxInboundMessageSize)
-                .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS)
-                .build();
-        return channel;
+    private <T extends AbstractStub<T>> T withBasicAuthentication(T stub) {
+        BasicAuthenticationInterceptor authInterceptor = config.getBasicAuthenticationInterceptor();
+        if (authInterceptor != null) {
+            LOGGER.info("Use Basic authentication to vtgate grpc.");
+            stub = stub.withInterceptors(authInterceptor);
+        }
+        return stub;
+    }
+
+    private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize,
+                                      ChannelCredentials tlsChannelCredentials) {
+        ManagedChannelBuilder channelBuilder;
+        if (tlsChannelCredentials == null) {
+            LOGGER.info("Use plainText connection to vtgate grpc.");
+            channelBuilder = ManagedChannelBuilder.forAddress(vtgateHost, vtgatePort)
+                    .usePlaintext();
+        }
+        else {
+            LOGGER.info("Use TLS connection to vtgate grpc.");
+            channelBuilder = Grpc.newChannelBuilderForAddress(vtgateHost, vtgatePort, tlsChannelCredentials);
+        }
+        channelBuilder = channelBuilder.maxInboundMessageSize(maxInboundMessageSize)
+                .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS);
+        if (tlsChannelCredentials == null) {
+            channelBuilder = channelBuilder.usePlaintext();
+        }
+
+        return channelBuilder.build();
     }
 
     /** Close the gRPC connection to VStream */
