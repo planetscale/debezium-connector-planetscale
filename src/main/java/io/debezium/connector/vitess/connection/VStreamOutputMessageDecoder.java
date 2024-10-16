@@ -45,7 +45,8 @@ import net.sf.jsqlparser.statement.truncate.Truncate;
 public class VStreamOutputMessageDecoder implements MessageDecoder {
     private static final Logger LOGGER = LoggerFactory.getLogger(VStreamOutputMessageDecoder.class);
 
-    // See all flags: https://dev.mysql.com/doc/dev/mysql-server/8.0.12/group__group__cs__column__definition__flags.html
+    // See all flags:
+    // https://dev.mysql.com/doc/dev/mysql-server/8.0.12/group__group__cs__column__definition__flags.html
     private static final int NOT_NULL_FLAG = 1;
     private static final int PRI_KEY_FLAG = 1 << 1;
     private static final int UNIQUE_KEY_FLAG = 1 << 2;
@@ -67,7 +68,9 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                                Binlogdata.VEvent vEvent,
                                ReplicationMessageProcessor processor,
                                Vgtid newVgtid,
-                               boolean isLastRowEventOfTransaction)
+                               boolean isLastRowEventOfTransaction,
+                               boolean isSnapshotRecord,
+                               Instant snapshotStartedAt)
             throws InterruptedException {
         final Binlogdata.VEventType vEventType = vEvent.getType();
         switch (vEventType) {
@@ -78,7 +81,7 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                 handleCommitMessage(vEvent, processor, newVgtid);
                 break;
             case ROW:
-                decodeRows(vEvent, processor, newVgtid, isLastRowEventOfTransaction);
+                decodeRows(vEvent, processor, newVgtid, isLastRowEventOfTransaction, isSnapshotRecord, snapshotStartedAt);
                 break;
             case FIELD:
                 // field type event has table schema
@@ -135,7 +138,8 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                 return;
             }
             else {
-                LOGGER.debug("Unknown statement type {} encountered, skipping DDL {}", stmt.getClass().getName(), vEvent.getStatement());
+                LOGGER.debug("Unknown statement type {} encountered, skipping DDL {}", stmt.getClass().getName(),
+                        vEvent.getStatement());
                 return;
             }
         }
@@ -202,7 +206,9 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                 new TransactionalMessage(Operation.COMMIT, transactionId, commitTimestamp), newVgtid, false);
     }
 
-    private void decodeRows(Binlogdata.VEvent vEvent, ReplicationMessageProcessor processor, Vgtid newVgtid, boolean isLastRowEventOfTransaction)
+    private void decodeRows(
+                            Binlogdata.VEvent vEvent, ReplicationMessageProcessor processor, Vgtid newVgtid,
+                            boolean isLastRowEventOfTransaction, boolean isSnapshotRecord, Instant snapshotStartedAt)
             throws InterruptedException {
         Binlogdata.RowEvent rowEvent = vEvent.getRowEvent();
         String[] schemaTableTuple = rowEvent.getTableName().split("\\.");
@@ -221,16 +227,21 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
             for (int i = 0; i < numOfRowChanges; i++) {
                 Binlogdata.RowChange rowChange = rowEvent.getRowChanges(i);
                 numOfRowChangesEventSeen++;
-                boolean isLastRowOfTransaction = isLastRowEventOfTransaction && numOfRowChangesEventSeen == numOfRowChanges ? true : false;
+                boolean isLastRowOfTransaction = isLastRowEventOfTransaction && numOfRowChangesEventSeen == numOfRowChanges
+                        ? true
+                        : false;
                 if (rowChange.hasAfter() && !rowChange.hasBefore()) {
-                    decodeInsert(rowChange.getAfter(), schemaName, tableName, shard, processor, newVgtid, isLastRowOfTransaction);
+                    decodeInsert(rowChange.getAfter(), schemaName, tableName, shard, processor, newVgtid, isLastRowOfTransaction,
+                            isSnapshotRecord, snapshotStartedAt);
                 }
                 else if (rowChange.hasAfter() && rowChange.hasBefore()) {
                     decodeUpdate(
-                            rowChange.getBefore(), rowChange.getAfter(), schemaName, tableName, shard, processor, newVgtid, isLastRowOfTransaction);
+                            rowChange.getBefore(), rowChange.getAfter(), schemaName, tableName, shard, processor, newVgtid,
+                            isLastRowOfTransaction);
                 }
                 else if (!rowChange.hasAfter() && rowChange.hasBefore()) {
-                    decodeDelete(rowChange.getBefore(), schemaName, tableName, shard, processor, newVgtid, isLastRowOfTransaction);
+                    decodeDelete(rowChange.getBefore(), schemaName, tableName, shard, processor, newVgtid,
+                            isLastRowOfTransaction);
                 }
                 else {
                     LOGGER.error("{} decodeRow skipped.", vEvent);
@@ -246,7 +257,9 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                               String shard,
                               ReplicationMessageProcessor processor,
                               Vgtid newVgtid,
-                              boolean isLastRowEventOfTransaction)
+                              boolean isLastRowEventOfTransaction,
+                              boolean isSnapshotRecord,
+                              Instant snapshotStartedAt)
             throws InterruptedException {
         Optional<Table> resolvedTable = resolveRelation(shard, schemaName, tableName);
 
@@ -263,10 +276,15 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
             columns = resolveColumns(row, table);
         }
 
+        Instant timestamp = commitTimestamp;
+        if (isSnapshotRecord) {
+            timestamp = snapshotStartedAt;
+        }
+
         processor.process(
                 new VStreamOutputReplicationMessage(
                         Operation.INSERT,
-                        commitTimestamp,
+                        timestamp,
                         transactionId,
                         tableId.toDoubleQuotedString(),
                         shard,
@@ -389,12 +407,17 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                 isLastRowOfTransaction);
     }
 
-    /** Resolve table from a prior FIELD message or empty when the table is filtered */
+    /**
+     * Resolve table from a prior FIELD message or empty when the table is filtered
+     */
     private Optional<Table> resolveRelation(String shard, String schemaName, String tableName) {
         return Optional.ofNullable(schema.tableFor(VitessDatabaseSchema.buildTableId(shard, schemaName, tableName)));
     }
 
-    /** Resolve the vEvent data to a list of replication message columns (with values). */
+    /**
+     * Resolve the vEvent data to a list of replication message columns (with
+     * values).
+     */
     private List<Column> resolveColumns(Row row, Table table) {
         int numberOfColumns = row.getLengthsCount();
         List<io.debezium.relational.Column> tableColumns = table.columns();
@@ -535,11 +558,14 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                     String.format("Empty column name from schema: %s, table: %s", schemaName, tableName));
         }
         char first = columnName.charAt(0);
-        // Vitess VStreamer schema reloading transient bug could cause column names to be anonymized to @1, @2, etc
-        // We want to fail in this case instead of sending the corrupted row events with @1, @2 as column names.
+        // Vitess VStreamer schema reloading transient bug could cause column names to
+        // be anonymized to @1, @2, etc
+        // We want to fail in this case instead of sending the corrupted row events with
+        // @1, @2 as column names.
         if (first == '@') {
             throw new IllegalArgumentException(
-                    String.format("Illegal prefix '@' for column: %s, from schema: %s, table: %s", columnName, schemaName, tableName));
+                    String.format("Illegal prefix '@' for column: %s, from schema: %s, table: %s", columnName, schemaName,
+                            tableName));
         }
         return columnName;
     }
