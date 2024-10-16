@@ -194,6 +194,14 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
         }
     }
 
+    public static final Field SSL_DISABLED = Field.create(DATABASE_CONFIG_PREFIX + "ssl.disabled")
+            .withDisplayName("SSL Disabled")
+            .withType(Type.BOOLEAN)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 1))
+            .withWidth(Width.SHORT)
+            .withImportance(ConfigDef.Importance.MEDIUM)
+            .withDescription("Disable all SSL communication, use plainText");
+
     public static final Field SSL_KEYSTORE = Field.create(DATABASE_CONFIG_PREFIX + "ssl.keystore")
             .withDisplayName("SSL Keystore")
             .withType(Type.STRING)
@@ -441,6 +449,7 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
             .edit()
             .name("Vitess")
             .type(
+                    SSL_DISABLED,
                     SSL_KEYSTORE,
                     SSL_KEYSTORE_PASSWORD,
                     SSL_TRUSTSTORE,
@@ -675,6 +684,10 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
                 BIGINT_UNSIGNED_HANDLING_MODE.defaultValueAsString());
     }
 
+    public boolean isSSLDisabled() {
+        return getConfig().getBoolean(SSL_DISABLED);
+    }
+
     public boolean isAuthenticated() {
         return isStringConfigSet(VTGATE_USER) && isStringConfigSet(VTGATE_PASSWORD);
     }
@@ -743,11 +756,15 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
     }
 
     public ChannelCredentials getTLSChannelCredentials() {
+        if (isSSLDisabled()) {
+            return null;
+        }
+
         ChannelCredentials tlsChannelCredentials = getTLSChannelCredentialsFromJKSFile();
         if (tlsChannelCredentials != null) {
             return tlsChannelCredentials;
         }
 
-        return null;
+        return TlsChannelCredentials.create();
     }
 }

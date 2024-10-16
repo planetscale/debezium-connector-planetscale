@@ -125,7 +125,10 @@ public class TestHelper {
                 .with(VitessConnectorConfig.VTGATE_PORT, VTGATE_PORT)
                 .with(VitessConnectorConfig.VTGATE_USER, USERNAME)
                 .with(VitessConnectorConfig.VTGATE_PASSWORD, PASSWORD)
-                .with(VitessConnectorConfig.POLL_INTERVAL_MS, 100);
+                .with(VitessConnectorConfig.POLL_INTERVAL_MS, 100)
+                .with(VitessConnectorConfig.SSL_DISABLED, true)
+                .with("schema.history.internal", "io.debezium.storage.file.history.FileSchemaHistory")
+                .with("schema.history.internal.file.filename", "history.dat");
         if (!Strings.isNullOrEmpty(tableInclude)) {
             builder.with(RelationalDatabaseConnectorConfig.TABLE_INCLUDE_LIST, tableInclude);
         }
