@@ -5,13 +5,19 @@
  */
 package io.debezium.connector.vitess.connection;
 
+import java.time.Instant;
+
 import io.debezium.connector.vitess.Vgtid;
 
 import binlogdata.Binlogdata;
 
-/** Decode VStream gRPC VEvent and process it with the ReplicationMessageProcessor. */
+/**
+ * Decode VStream gRPC VEvent and process it with the
+ * ReplicationMessageProcessor.
+ */
 public interface MessageDecoder {
 
-    void processMessage(Binlogdata.VEvent event, ReplicationMessageProcessor processor, Vgtid newVgtid, boolean isLastRowEventOfTransaction)
+    void processMessage(Binlogdata.VEvent event, ReplicationMessageProcessor processor, Vgtid newVgtid,
+                        boolean isLastRowEventOfTransaction, boolean isSnapshotRecord, Instant snapshotStartedAt)
             throws InterruptedException;
 }

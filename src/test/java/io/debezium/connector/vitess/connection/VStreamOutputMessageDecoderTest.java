@@ -75,7 +75,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 newVgtid,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -100,7 +102,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isFalse();
     }
 
@@ -128,7 +132,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 newVgtid,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -153,7 +159,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isFalse();
     }
 
@@ -183,7 +191,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -206,7 +216,9 @@ public class VStreamOutputMessageDecoderTest {
                     fail("should not reach here");
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
     }
 
     @Test
@@ -235,7 +247,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -265,7 +279,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -293,7 +309,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -315,7 +333,9 @@ public class VStreamOutputMessageDecoderTest {
                         fail("should not reach here");
                     },
                     null,
-                    false);
+                    false,
+                    false,
+                    null);
         });
         assertEquals("Unable to parse DDL 'Hello World', skipping DDL", exception.getMessage());
     }
@@ -348,7 +368,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
@@ -372,14 +394,16 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
     @Test
     public void shouldProcessFieldEvent() throws Exception {
         // exercise SUT
-        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false);
+        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false, false, null);
         Table table = schema.tableFor(TestHelper.defaultTableId());
 
         // verify outcome
@@ -397,8 +421,8 @@ public class VStreamOutputMessageDecoderTest {
         String shard1 = "-80";
         String shard2 = "80-";
         // exercise SUT
-        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.columnValuesSubset(), shard1, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false);
-        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.columnValuesSubset(), shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false);
+        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.columnValuesSubset(), shard1, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false, false, null);
+        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.columnValuesSubset(), shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false, false, null);
         Table table = schema.tableFor(new TableId(shard1, TestHelper.TEST_SHARDED_KEYSPACE, TestHelper.TEST_TABLE));
 
         // verify outcome
@@ -420,7 +444,7 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.columnSubsetNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
 
         decoder.processMessage(
                 TestHelper.insertEvent(TestHelper.columnValuesSubset(), shard2, TestHelper.TEST_SHARDED_KEYSPACE),
@@ -432,10 +456,10 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.columnSubsetNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
 
         // update schema for shard 2
-        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.defaultColumnValues(), shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false);
+        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.defaultColumnValues(), shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false, false, null);
         Table tableAfterSchemaChange = schema.tableFor(new TableId(shard2, TestHelper.TEST_SHARDED_KEYSPACE, TestHelper.TEST_TABLE));
 
         // verify outcome
@@ -458,7 +482,7 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.defaultNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
 
         // shard 1 has not been updated with new schema so it should still be able to handle values with the old schema
         decoder.processMessage(
@@ -471,7 +495,7 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.columnSubsetNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
     }
 
     @Test
@@ -479,8 +503,8 @@ public class VStreamOutputMessageDecoderTest {
         String shard1 = "-80";
         String shard2 = "80-";
         // exercise SUT
-        decoder.processMessage(TestHelper.defaultFieldEvent(shard1, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false);
-        decoder.processMessage(TestHelper.defaultFieldEvent(shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false);
+        decoder.processMessage(TestHelper.defaultFieldEvent(shard1, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false, false, null);
+        decoder.processMessage(TestHelper.defaultFieldEvent(shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false, false, null);
         Table table = schema.tableFor(new TableId(shard1, TestHelper.TEST_SHARDED_KEYSPACE, TestHelper.TEST_TABLE));
 
         // verify outcome
@@ -502,7 +526,7 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.defaultNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
 
         decoder.processMessage(
                 TestHelper.insertEvent(TestHelper.defaultColumnValues(), shard2, TestHelper.TEST_SHARDED_KEYSPACE),
@@ -514,10 +538,10 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.defaultNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
 
         // update schema for shard 2
-        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.columnValuesSubset(), shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false);
+        decoder.processMessage(TestHelper.newFieldEvent(TestHelper.columnValuesSubset(), shard2, TestHelper.TEST_SHARDED_KEYSPACE), null, null, false, false, null);
         Table tableAfterSchemaChange = schema.tableFor(new TableId(shard2, TestHelper.TEST_SHARDED_KEYSPACE, TestHelper.TEST_TABLE));
 
         // verify outcome
@@ -540,7 +564,7 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.columnSubsetNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
 
         // shard 1 has not been updated with new schema so it should still be able to handle values with the old schema
         decoder.processMessage(
@@ -553,13 +577,13 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getOldTupleList()).isNull();
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.defaultNumOfColumns());
                 },
-                null, false);
+                null, false, false, null);
     }
 
     @Test
     public void shouldThrowExceptionWithDetailedMessageOnRowSchemaMismatch() throws Exception {
         // exercise SUT
-        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false);
+        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false, false, null);
         Table table = schema.tableFor(TestHelper.defaultTableId());
 
         // verify outcome
@@ -572,7 +596,7 @@ public class VStreamOutputMessageDecoderTest {
         }
 
         assertThatThrownBy(() -> {
-            decoder.processMessage(TestHelper.insertEvent(TestHelper.columnValuesSubset()), null, null, false);
+            decoder.processMessage(TestHelper.insertEvent(TestHelper.columnValuesSubset()), null, null, false, false, null);
         }).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("bool_col")
                 .hasMessageContaining("long_col");
@@ -581,7 +605,7 @@ public class VStreamOutputMessageDecoderTest {
     @Test
     public void shouldProcessInsertEvent() throws Exception {
         // setup fixture
-        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false);
+        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false, false, null);
         schema.tableFor(TestHelper.defaultTableId());
 
         // exercise SUT
@@ -598,14 +622,14 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message.getNewTupleList().size()).isEqualTo(TestHelper.defaultNumOfColumns());
                     processed[0] = true;
                 },
-                null, false);
+                null, false, false, null);
         assertThat(processed[0]).isTrue();
     }
 
     @Test
     public void shouldProcessDeleteEvent() throws Exception {
         // setup fixture
-        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false);
+        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false, false, null);
         schema.tableFor(TestHelper.defaultTableId());
 
         // exercise SUT
@@ -622,14 +646,16 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 
     @Test
     public void shouldProcessUpdateEvent() throws Exception {
         // setup fixture
-        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false);
+        decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false, false, null);
         schema.tableFor(TestHelper.defaultTableId());
 
         // exercise SUT
@@ -646,7 +672,9 @@ public class VStreamOutputMessageDecoderTest {
                     processed[0] = true;
                 },
                 null,
-                false);
+                false,
+                false,
+                null);
         assertThat(processed[0]).isTrue();
     }
 

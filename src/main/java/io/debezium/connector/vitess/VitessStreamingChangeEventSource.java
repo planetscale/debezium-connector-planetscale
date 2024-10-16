@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.connector.SnapshotRecord;
+import io.debezium.connector.vitess.VitessConnectorConfig.SnapshotMode;
 import io.debezium.connector.vitess.connection.ReplicationConnection;
 import io.debezium.connector.vitess.connection.ReplicationMessage;
 import io.debezium.connector.vitess.connection.ReplicationMessageProcessor;
@@ -24,11 +26,13 @@ import io.debezium.util.DelayStrategy;
 import io.grpc.Status;
 
 /**
- * Read events from source and dispatch each event using {@link EventDispatcher} to the {@link
+ * Read events from source and dispatch each event using {@link EventDispatcher}
+ * to the {@link
  * io.debezium.pipeline.source.spi.ChangeEventSource}. It runs in the
  * change-event-source-coordinator thread only.
  */
-public class VitessStreamingChangeEventSource implements StreamingChangeEventSource<VitessPartition, VitessOffsetContext> {
+public class VitessStreamingChangeEventSource
+        implements StreamingChangeEventSource<VitessPartition, VitessOffsetContext> {
     private static final Logger LOGGER = LoggerFactory.getLogger(VitessStreamingChangeEventSource.class);
 
     private final EventDispatcher<VitessPartition, TableId> dispatcher;
@@ -60,13 +64,23 @@ public class VitessStreamingChangeEventSource implements StreamingChangeEventSou
     @Override
     public void execute(ChangeEventSourceContext context, VitessPartition partition, VitessOffsetContext offsetContext) {
         if (offsetContext == null) {
-            offsetContext = VitessOffsetContext.initialContext(connectorConfig, clock);
+            boolean snapshot = connectorConfig.getSnapshotMode() != SnapshotMode.NEVER;
+            offsetContext = VitessOffsetContext.initialContext(snapshot, connectorConfig, clock);
+        }
+        else {
+            // XXX(maxenglander): this is an ugly hack to ensure that records
+            // produced after VStream copy are not marked as snapshot records.
+            //
+            // This is not usually necessary, but one circumstance where it is
+            // needed is when snapshot mode is INITIAL, and the connector is
+            // stopped immediately after the VStream copy is completed.
+            offsetContext.markSnapshotRecord(SnapshotRecord.FALSE);
         }
 
         try {
             AtomicReference<Throwable> error = new AtomicReference<>();
             replicationConnection.startStreaming(
-                    offsetContext.getRestartVgtid(), newReplicationMessageProcessor(partition, offsetContext), error);
+                    offsetContext, newReplicationMessageProcessor(partition, offsetContext), error);
 
             while (context.isRunning() && error.get() == null) {
                 pauseNoMessage.sleepWhen(true);
@@ -104,7 +118,8 @@ public class VitessStreamingChangeEventSource implements StreamingChangeEventSou
                 offsetContext.rotateVgtid(newVgtid, message.getCommitTime());
                 if (message.getOperation() == ReplicationMessage.Operation.BEGIN) {
                     // send to transaction topic
-                    dispatcher.dispatchTransactionStartedEvent(partition, message.getTransactionId(), offsetContext, message.getCommitTime());
+                    dispatcher.dispatchTransactionStartedEvent(partition, message.getTransactionId(), offsetContext,
+                            message.getCommitTime());
                 }
                 else if (message.getOperation() == ReplicationMessage.Operation.COMMIT) {
                     // send to transaction topic
@@ -144,7 +159,8 @@ public class VitessStreamingChangeEventSource implements StreamingChangeEventSou
                 offsetContext.event(tableId, message.getCommitTime());
                 offsetContext.setShard(message.getShard());
                 if (isLastRowOfTransaction) {
-                    // Right before processing the last row, reset the previous offset to the new vgtid so the last row has the new vgtid as offset.
+                    // Right before processing the last row, reset the previous offset to the new
+                    // vgtid so the last row has the new vgtid as offset.
                     offsetContext.resetVgtid(newVgtid, message.getCommitTime());
                 }
 

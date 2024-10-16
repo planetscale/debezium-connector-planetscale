@@ -9,9 +9,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import io.debezium.annotation.NotThreadSafe;
 import io.debezium.connector.vitess.Vgtid;
+import io.debezium.connector.vitess.VitessOffsetContext;
 
 /**
- * A Vitess logical streaming replication connection. Replication connections are established from a
+ * A Vitess logical streaming replication connection. Replication connections
+ * are established from a
  * vtgate, starting from a specific {@link Vgtid}.
  */
 @NotThreadSafe
@@ -20,11 +22,12 @@ public interface ReplicationConnection extends AutoCloseable {
     /**
      * Opens a stream that reads from a specific replication position.
      *
-     * @param vgtid a specific replication position
-     * @param processor - a callback to which the decoded message is passed
-     * @param error - check whether an error has happened during streaming, propagate the error
-     *     asynchronously
+     * @param offsetContext offset context
+     * @param processor     - a callback to which the decoded message is passed
+     * @param error         - check whether an error has happened during streaming,
+     *                      propagate the error
+     *                      asynchronously
      */
     void startStreaming(
-                        Vgtid vgtid, ReplicationMessageProcessor processor, AtomicReference<Throwable> error);
+                        VitessOffsetContext offsetContext, ReplicationMessageProcessor processor, AtomicReference<Throwable> error);
 }

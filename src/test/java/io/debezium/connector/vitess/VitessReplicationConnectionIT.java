@@ -36,6 +36,7 @@ import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.schema.DefaultTopicNamingStrategy;
 import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.spi.topic.TopicNamingStrategy;
+import io.debezium.util.Clock;
 
 import binlogdata.Binlogdata;
 import ch.qos.logback.classic.Level;
@@ -74,11 +75,14 @@ public class VitessReplicationConnectionIT {
                                         .setGtid(Vgtid.CURRENT_GTID)
                                         .build())
                         .build());
+        boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+        VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+        offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
         BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
-                startingVgtid,
+                offsetContext,
                 (message, vgtid, isLastRowEventOfTransaction) -> {
                     if (!started.get()) {
                         started.set(true);
@@ -118,11 +122,14 @@ public class VitessReplicationConnectionIT {
                                         .setGtid(Vgtid.CURRENT_GTID)
                                         .build())
                         .build());
+        boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+        VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+        offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
         BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
-                startingVgtid,
+                offsetContext,
                 (message, vgtid, isLastRowEventOfTransaction) -> {
                     if (!started.get()) {
                         started.set(true);
@@ -161,11 +168,14 @@ public class VitessReplicationConnectionIT {
                                         .setGtid(Vgtid.CURRENT_GTID)
                                         .build())
                         .build());
+        boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+        VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+        offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
         BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
-                startingVgtid,
+                offsetContext,
                 (message, vgtid, isLastRowEventOfTransaction) -> {
                     if (!started.get()) {
                         started.set(true);
@@ -205,11 +215,14 @@ public class VitessReplicationConnectionIT {
                                         .setGtid(Vgtid.CURRENT_GTID)
                                         .build())
                         .build());
+        boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+        VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+        offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
         BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
-                startingVgtid,
+                offsetContext,
                 (message, vgtid, isLastRowEventOfTransaction) -> {
                     if (!started.get()) {
                         started.set(true);
@@ -245,11 +258,14 @@ public class VitessReplicationConnectionIT {
                                             .setGtid(Vgtid.CURRENT_GTID)
                                             .build())
                             .build());
+            boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+            VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+            offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
             BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
             AtomicBoolean started = new AtomicBoolean(false);
             connection.startStreaming(
-                    startingVgtid,
+                    offsetContext,
                     (message, vgtid, isLastRowEventOfTransaction) -> {
                         if (!started.get()) {
                             started.set(true);
@@ -314,10 +330,13 @@ public class VitessReplicationConnectionIT {
                                             .setGtid("")
                                             .build())
                             .build());
+            boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+            VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+            offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
             BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
             connection.startStreaming(
-                    startingVgtid,
+                    offsetContext,
                     (message, vgtid, isLastRowEventOfTransaction) -> {
                         consumedMessages.add(new MessageAndVgtid(message, vgtid));
                     },
@@ -389,11 +408,14 @@ public class VitessReplicationConnectionIT {
                                             .setGtid(Vgtid.CURRENT_GTID)
                                             .build())
                             .build());
+            boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+            VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+            offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
             BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
             AtomicBoolean started = new AtomicBoolean(false);
             connection.startStreaming(
-                    startingVgtid,
+                    offsetContext,
                     (message, vgtid, isLastRowEventOfTransaction) -> {
                         if (!started.get()) {
                             started.set(true);
@@ -473,10 +495,13 @@ public class VitessReplicationConnectionIT {
                                             .setGtid("")
                                             .build())
                             .build());
+            boolean snapshot = conf.getSnapshotMode() != VitessConnectorConfig.SnapshotMode.NEVER;
+            VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
+            offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
             BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
             connection.startStreaming(
-                    startingVgtid,
+                    offsetContext,
                     (message, vgtid, isLastRowEventOfTransaction) -> {
                         consumedMessages.add(new MessageAndVgtid(message, vgtid));
                     },

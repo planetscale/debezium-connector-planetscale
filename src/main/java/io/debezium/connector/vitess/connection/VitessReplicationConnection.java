@@ -5,6 +5,7 @@
  */
 package io.debezium.connector.vitess.connection;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -19,12 +20,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
+import io.debezium.connector.SnapshotRecord;
 import io.debezium.connector.vitess.VStreamCopyCompletedEventException;
 import io.debezium.connector.vitess.Vgtid;
 import io.debezium.connector.vitess.VitessConnector;
 import io.debezium.connector.vitess.VitessConnectorConfig;
 import io.debezium.connector.vitess.VitessConnectorConfig.SnapshotMode;
 import io.debezium.connector.vitess.VitessDatabaseSchema;
+import io.debezium.connector.vitess.VitessOffsetContext;
 import io.debezium.relational.TableId;
 import io.debezium.spi.schema.DataCollectionId;
 import io.debezium.util.Strings;
@@ -51,31 +54,35 @@ import binlogdata.Binlogdata;
 import binlogdata.Binlogdata.VEvent;
 
 /**
- * Connection to VTGate to replication messages. Also connect to VTCtld to get the latest {@link
+ * Connection to VTGate to replication messages. Also connect to VTCtld to get
+ * the latest {@link
  * Vgtid} if no previous offset exists.
  */
 public class VitessReplicationConnection implements ReplicationConnection {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(VitessReplicationConnection.class);
-
     private final MessageDecoder messageDecoder;
     private final VitessConnectorConfig config;
     // Channel closing is invoked from the change-event-source-coordinator thread
     private final AtomicReference<ManagedChannel> managedChannel = new AtomicReference<>();
 
-    public VitessReplicationConnection(VitessConnectorConfig config, VitessDatabaseSchema schema) {
+    public VitessReplicationConnection(VitessConnectorConfig config,
+                                       VitessDatabaseSchema schema) {
         this.messageDecoder = new VStreamOutputMessageDecoder(schema, config.ddlFilter());
         this.config = config;
     }
 
     /**
      * Execute SQL statement via vtgate gRPC.
+     *
      * @param sqlStatement The SQL statement to be executed
-     * @throws StatusRuntimeException if the connection is not valid, or SQL statement can not be successfully exected
+     * @throws StatusRuntimeException if the connection is not valid, or SQL
+     *                                statement can not be successfully exected
      */
     public Vtgate.ExecuteResponse execute(String sqlStatement) {
         ChannelCredentials tlsBuilder = config.getTLSChannelCredentials();
-        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize(),
+        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(),
+                config.getGrpcMaxInboundMessageSize(),
                 tlsBuilder);
         managedChannel.compareAndSet(null, channel);
 
@@ -87,11 +94,13 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
     @Override
     public void startStreaming(
-                               Vgtid vgtid, ReplicationMessageProcessor processor, AtomicReference<Throwable> error) {
+                               VitessOffsetContext offsetContext, ReplicationMessageProcessor processor, AtomicReference<Throwable> error) {
+        Vgtid vgtid = offsetContext.getRestartVgtid();
         Objects.requireNonNull(vgtid);
 
         ChannelCredentials tlsBuilder = config.getTLSChannelCredentials();
-        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize(),
+        ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(),
+                config.getGrpcMaxInboundMessageSize(),
                 tlsBuilder);
 
         managedChannel.compareAndSet(null, channel);
@@ -107,6 +116,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
             }
             stub = MetadataUtils.attachHeaders(stub, metadata);
         }
+
+        final Instant startedStreamingAt = VitessConnector.getCurrentTimestamp(config);
 
         StreamObserver<Vtgate.VStreamResponse> responseObserver = new ClientResponseObserver<Vtgate.VStreamRequest, Vtgate.VStreamResponse>() {
             private ClientCallStreamObserver<VStreamRequest> requestStream;
@@ -132,9 +143,12 @@ public class VitessReplicationConnection implements ReplicationConnection {
                         case VGTID:
                             // We always use the latest VGTID if any.
                             if (newVgtid != null) {
-                                if (newVgtid.getRawVgtid().getShardGtidsList().stream().findFirst().map(s -> s.getTablePKsCount() == 0).orElse(false)
-                                        && event.getVgtid().getShardGtidsList().stream().findFirst().map(s -> 0 < s.getTablePKsCount()).orElse(false)) {
-                                    LOGGER.info("Received more than one VGTID events during a copy operation and the previous one is {}. Using the latest: {}",
+                                if (newVgtid.getRawVgtid().getShardGtidsList().stream().findFirst().map(s -> s.getTablePKsCount() == 0)
+                                        .orElse(false)
+                                        && event.getVgtid().getShardGtidsList().stream().findFirst().map(s -> 0 < s.getTablePKsCount())
+                                                .orElse(false)) {
+                                    LOGGER.info(
+                                            "Received more than one VGTID events during a copy operation and the previous one is {}. Using the latest: {}",
                                             newVgtid.toString(),
                                             event.getVgtid().toString());
                                 }
@@ -155,10 +169,14 @@ public class VitessReplicationConnection implements ReplicationConnection {
                             }
                             if (beginEventSeen) {
                                 String msg = "Received duplicate BEGIN events";
-                                // During a copy operation, we receive the duplicate event once when no record is copied.
-                                String eventTypes = bufferedEvents.stream().map(VEvent::getType).map(Objects::toString).collect(Collectors.joining(", "));
-                                if (eventTypes.equals("BEGIN, FIELD") || eventTypes.equals("BEGIN, FIELD, VGTID")) {
-                                    msg += String.format(" during a copy operation. No harm to skip the buffered events. Buffered event types: %s",
+                                // During a copy operation, we receive the duplicate event once when no record
+                                // is copied.
+                                String eventTypes = bufferedEvents.stream().map(VEvent::getType).map(Objects::toString)
+                                        .collect(Collectors.joining(", "));
+                                if (eventTypes.equals("BEGIN, FIELD") || eventTypes.equals("BEGIN, FIELD, VGTID")
+                                        || eventTypes.equals("COPY_COMPLETED, BEGIN, FIELD")) {
+                                    msg += String.format(
+                                            " during a copy operation. No harm to skip the buffered events. Buffered event types: %s",
                                             eventTypes);
                                     LOGGER.info(msg);
                                     reset();
@@ -186,17 +204,21 @@ public class VitessReplicationConnection implements ReplicationConnection {
                             break;
                         case COPY_COMPLETED:
                             // After all shards are copied, Vitess will send a final COPY_COMPLETED event.
-                            // See: https://github.com/vitessio/vitess/blob/v19.0.0/go/vt/vtgate/vstream_manager.go#L791-L808
+                            // See:
+                            // https://github.com/vitessio/vitess/blob/v19.0.0/go/vt/vtgate/vstream_manager.go#L791-L808
                             if (event.getKeyspace() == "" && event.getShard() == "") {
+                                offsetContext.markSnapshotRecord(SnapshotRecord.FALSE);
                                 copyCompletedEventSeen = true;
                             }
                             continue;
                         case DDL:
                         case OTHER:
-                            // If receiving DDL and OTHER, process them immediately to rotate vgtid in offset.
+                            // If receiving DDL and OTHER, process them immediately to rotate vgtid in
+                            // offset.
                             // For example, the response can be:
                             // [VGTID, DDL]. This is an DDL event.
-                            // [VGTID, OTHER]. This is the first response if "current" is used as starting gtid.
+                            // [VGTID, OTHER]. This is the first response if "current" is used as starting
+                            // gtid.
                             sendNow = true;
                             break;
                     }
@@ -205,8 +227,10 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
                 numResponses++;
 
-                // We only proceed when we receive a complete transaction after seeing both BEGIN and COMMIT events,
-                // OR if sendNow flag is true (meaning we should process buffered events immediately).
+                // We only proceed when we receive a complete transaction after seeing both
+                // BEGIN and COMMIT events,
+                // OR if sendNow flag is true (meaning we should process buffered events
+                // immediately).
                 if ((!beginEventSeen || !commitEventSeen) && !sendNow && !copyCompletedEventSeen) {
                     LOGGER.debug("Received partial transaction: number of responses so far is {}", numResponses);
                     return;
@@ -229,8 +253,14 @@ public class VitessReplicationConnection implements ReplicationConnection {
                         if (event.getType() == Binlogdata.VEventType.ROW) {
                             rowEventSeen++;
                         }
-                        boolean isLastRowEventOfTransaction = newVgtid != null && numOfRowEvents != 0 && rowEventSeen == numOfRowEvents;
-                        messageDecoder.processMessage(bufferedEvents.get(i), processor, newVgtid, isLastRowEventOfTransaction);
+                        boolean isLastRowEventOfTransaction = newVgtid != null && numOfRowEvents != 0
+                                && rowEventSeen == numOfRowEvents;
+                        messageDecoder.processMessage(
+                                bufferedEvents.get(i),
+                                processor, newVgtid,
+                                isLastRowEventOfTransaction,
+                                offsetContext.isSnapshotRunning(),
+                                startedStreamingAt);
                     }
                 }
                 catch (InterruptedException e) {
@@ -243,9 +273,13 @@ public class VitessReplicationConnection implements ReplicationConnection {
                     reset();
                 }
 
-                if (copyCompletedEventSeen && config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
-                    LOGGER.info("Cancel the copy operation after receiving COPY_COMPLETED event");
-                    requestStream.cancel("Cancel the copy operation after receiving COPY_COMPLETED event", new VStreamCopyCompletedEventException());
+                if (copyCompletedEventSeen) {
+                    LOGGER.info("Received COPY_COMPLETED event for all keyspaces and shards");
+                    if (config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
+                        LOGGER.info("Cancel the copy operation after receiving COPY_COMPLETED event");
+                        requestStream.cancel("Cancel the copy operation after receiving COPY_COMPLETED event",
+                                new VStreamCopyCompletedEventException());
+                    }
                 }
             }
 
@@ -314,7 +348,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
             String sql = "select * from `" + table + "`";
             if (config.isColumnsFiltered()) {
                 List<String> allColumns = VitessConnector.getTableColumns(config, table);
-                List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(), config.getColumnFilter(), allColumns, table);
+                List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(),
+                        config.getColumnFilter(), allColumns, table);
                 sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
             }
             tableSQL.put(table, sql);
@@ -325,7 +360,9 @@ public class VitessReplicationConnection implements ReplicationConnection {
             selectOverrides.forEach((dataCollectionId, selectOverride) -> {
                 TableId tableId = (TableId) dataCollectionId;
                 if (!tableSQL.containsKey(tableId.table())) {
-                    LOGGER.warn("Table {} is either not in the keyspace or in the table include list. Ignoring the select statement override.", tableId.table());
+                    LOGGER.warn(
+                            "Table {} is either not in the keyspace or in the table include list. Ignoring the select statement override.",
+                            tableId.table());
                     return;
                 }
                 tableSQL.put(tableId.table(), selectOverride);
@@ -338,14 +375,17 @@ public class VitessReplicationConnection implements ReplicationConnection {
             String sql = entry.getValue();
             LOGGER.info("Running Sql Query: {}", sql);
 
-            // See rule in: https://github.com/vitessio/vitess/blob/release-14.0/go/vt/vttablet/tabletserver/vstreamer/planbuilder.go#L316
+            // See rule in:
+            // https://github.com/vitessio/vitess/blob/release-14.0/go/vt/vttablet/tabletserver/vstreamer/planbuilder.go#L316
             Binlogdata.Rule rule = Binlogdata.Rule.newBuilder().setMatch(table).setFilter(sql).build();
             LOGGER.info("Add vstream table filtering: {}", rule.getMatch());
             filterBuilder.addRules(rule);
         }
 
-        // Providing a vgtid MySQL56/19eb2657-abc2-11ea-8ffc-0242ac11000a:1-61 here will make VStream to
-        // start receiving row-changes from MySQL56/19eb2657-abc2-11ea-8ffc-0242ac11000a:1-62
+        // Providing a vgtid MySQL56/19eb2657-abc2-11ea-8ffc-0242ac11000a:1-61 here will
+        // make VStream to
+        // start receiving row-changes from
+        // MySQL56/19eb2657-abc2-11ea-8ffc-0242ac11000a:1-62
         Vtgate.VStreamRequest.Builder vstreamBuilder = Vtgate.VStreamRequest.newBuilder()
                 .setVgtid(vgtid.getRawVgtid())
                 .setTabletType(
@@ -373,7 +413,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
     private <T extends AbstractStub<T>> T withCredentials(T stub) {
         if (config.getVtgateUsername() != null && config.getVtgatePassword() != null) {
             LOGGER.info("Use authenticated vtgate grpc.");
-            stub = stub.withCallCredentials(new StaticAuthCredentials(config.getVtgateUsername(), config.getVtgatePassword()));
+            stub = stub
+                    .withCallCredentials(new StaticAuthCredentials(config.getVtgateUsername(), config.getVtgatePassword()));
         }
         return stub;
     }
@@ -461,7 +502,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
         }
         else {
             if (config.getShard() == null || config.getShard().isEmpty()) {
-                // This case is not supported by the Vitess, so our workaround is to get all the shards from vtgate.
+                // This case is not supported by the Vitess, so our workaround is to get all the
+                // shards from vtgate.
                 if (config.getGtid() == VitessConnectorConfig.EMPTY_GTID_LIST) {
                     List<String> shards = VitessConnector.getVitessShards(config);
                     List<String> gtids = Collections.nCopies(shards.size(), config.getGtid().get(0));

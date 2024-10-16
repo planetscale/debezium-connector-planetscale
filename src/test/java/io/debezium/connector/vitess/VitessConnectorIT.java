@@ -550,6 +550,8 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         startConnector(Function.identity(), hasMultipleShards, true, 2, 0, 1, null, null, null);
         assertConnectorIsRunning();
 
+        waitForCopyCompleted();
+
         int expectedRecordsCount = 1;
         consumer = testConsumer(expectedRecordsCount);
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TEST_SHARDED_KEYSPACE, TestHelper.PK_FIELD, hasMultipleShards);
@@ -941,6 +943,8 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         assertSourceInfo(record, TEST_SERVER, TEST_SHARDED_KEYSPACE, "numeric_table");
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
+        waitForCopyCompleted();
+
         // We should receive additional record from numeric_table
         consumer.expects(expectedRecordsCount);
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TEST_SHARDED_KEYSPACE, TestHelper.PK_FIELD, hasMultipleShards);
@@ -948,6 +952,8 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
 
     @Test
     public void testCopyTableAndRestart() throws Exception {
+        final boolean hasMultipleShards = false;
+
         TestHelper.executeDDL("vitess_create_tables.ddl");
         TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
 
@@ -965,6 +971,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
         // Restart the connector.
+        waitForCopyCompleted();
         stopConnector();
         startConnector(Function.identity(), false, false, 1, -1, -1, null, null, null);
 
@@ -1034,11 +1041,9 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
 
         assertRecordInserted(TEST_UNSHARDED_KEYSPACE + ".numeric_table", TestHelper.PK_FIELD);
 
-        System.out.println("INSERTING MORE ROWS");
         // Add more rows.
         TestHelper.execute(insertRowsStatement);
 
-        System.out.println("WAITING FOR INSERTED ROWS");
         // Try consuming new rows, there should be no change to # of consumed rows.
         consumer = testConsumer(0, tableInclude);
         consumer.await(Math.min(2, TestHelper.waitTimeForRecords()), TimeUnit.SECONDS);
@@ -1117,6 +1122,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         Testing.print("*** Done with verifying without offset.storage.per.task");
     }
 
+    private void waitForCopyCompleted() {
+        final LogInterceptor logInterceptor = new LogInterceptor(VitessReplicationConnection.class);
+        Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
+                .pollInterval(Duration.ofSeconds(1))
+                .until(() -> logInterceptor.containsMessage("Received COPY_COMPLETED event for all keyspaces and shards"));
+    }
+
     private void waitForGtidAcquiring(final LogInterceptor logInterceptor) {
         // The inserts must happen only after GTID to stream from is obtained
         Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
@@ -1129,18 +1141,18 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
                 .until(() -> logInterceptor.containsMessage("Default VGTID '[{\"keyspace\":"));
     }
 
+    private void waitForVStreamCancelled(final LogInterceptor logInterceptor) {
+        // The inserts must happen only after VStream is started with some buffer time.
+        Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
+                .pollInterval(Duration.ofSeconds(1))
+                .until(() -> logInterceptor.containsMessage("Cancel the copy operation after receiving COPY_COMPLETED event"));
+    }
+
     private void waitForVStreamStarted(final LogInterceptor logInterceptor) {
         // The inserts must happen only after VStream is started with some buffer time.
         Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .pollInterval(Duration.ofSeconds(1))
                 .until(() -> logInterceptor.containsMessage("Started VStream"));
-    }
-
-    private void waitForVStreamStopped(final LogInterceptor logInterceptor) {
-        // The inserts must happen only after VStream is started with some buffer time.
-        Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
-                .pollInterval(Duration.ofSeconds(1))
-                .until(() -> logInterceptor.containsMessage("Cancel the copy operation after receiving COPY_COMPLETED event"));
     }
 
     private void startConnector() throws InterruptedException {
@@ -1205,9 +1217,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
                 hasMultipleShards, offsetStoragePerTask, numTasks, gen, prevNumTasks, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL_ONLY, shards));
         final LogInterceptor logInterceptor = new LogInterceptor(VitessReplicationConnection.class);
         start(VitessConnector.class, configBuilder.build());
-        System.out.println("WAITING FOR VSTREAM STOPPED");
-        waitForVStreamStopped(logInterceptor);
-        System.out.println("VSTREAM STOPPED");
+        waitForVStreamCancelled(logInterceptor);
         stopConnector();
     }
 
