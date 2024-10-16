@@ -5,8 +5,13 @@
  */
 package io.debezium.connector.vitess.connection;
 
+import static junit.framework.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
+
+import java.util.function.Predicate;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -23,6 +28,7 @@ import io.debezium.doc.FixFor;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.schema.DefaultTopicNamingStrategy;
+import io.debezium.schema.SchemaChangeEvent;
 import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.spi.topic.TopicNamingStrategy;
 import io.vitess.proto.Query;
@@ -43,7 +49,7 @@ public class VStreamOutputMessageDecoderTest {
                 connectorConfig,
                 SchemaNameAdjuster.create(),
                 (TopicNamingStrategy) DefaultTopicNamingStrategy.create(connectorConfig));
-        decoder = new VStreamOutputMessageDecoder(schema);
+        decoder = new VStreamOutputMessageDecoder(schema, connectorConfig.ddlFilter());
     }
 
     @Test
@@ -152,10 +158,12 @@ public class VStreamOutputMessageDecoderTest {
     }
 
     @Test
-    public void shouldProcessDdlEvent() throws Exception {
+    public void shouldProcessAlterDdlEvent() throws Exception {
         // setup fixture
         Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
                 .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
                 .setTimestamp(AnonymousValue.getLong())
                 .setStatement("ALTER TABLE foo ADD bar INT default 10")
                 .build();
@@ -169,6 +177,174 @@ public class VStreamOutputMessageDecoderTest {
                     assertThat(message).isNotNull();
                     assertThat(message).isInstanceOf(DdlMessage.class);
                     assertThat(message.getOperation()).isEqualTo(ReplicationMessage.Operation.DDL);
+                    assertThat(message.getTable()).isEqualTo("-.customers.foo");
+                    assertThat(message.getDDL()).isEqualTo("ALTER TABLE foo ADD bar INT default 10");
+                    assertThat(message.getSchemaChangeType()).isEqualTo(SchemaChangeEvent.SchemaChangeEventType.ALTER);
+                    processed[0] = true;
+                },
+                null,
+                false);
+        assertThat(processed[0]).isTrue();
+    }
+
+    @Test
+    public void shouldSkipIgnoredDdl() throws Exception {
+        Predicate<String> ignoreAlters = (ddl) -> ddl.toUpperCase().contains("ALTER");
+        VStreamOutputMessageDecoder ignoredDDLDecoder = new VStreamOutputMessageDecoder(schema, ignoreAlters);
+        // setup fixture
+        Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
+                .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
+                .setTimestamp(AnonymousValue.getLong())
+                .setStatement("ALTER TABLE foo ADD bar INT default 10")
+                .build();
+
+        ignoredDDLDecoder.processMessage(
+                event,
+                (message, vgtid, isLastRowEventOfTransaction) -> {
+                    fail("should not reach here");
+                },
+                null,
+                false);
+    }
+
+    @Test
+    public void shouldHandleTableNamesWithKeyspace() throws Exception {
+        // setup fixture
+        Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
+                .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
+                .setTimestamp(AnonymousValue.getLong())
+                .setStatement("ALTER TABLE customers.foo ADD bar INT default 10")
+                .build();
+
+        // exercise SUT
+        final boolean[] processed = { false };
+        decoder.processMessage(
+                event,
+                (message, vgtid, isLastRowEventOfTransaction) -> {
+                    // verify outcome
+                    assertThat(message).isNotNull();
+                    assertThat(message).isInstanceOf(DdlMessage.class);
+                    assertThat(message.getOperation()).isEqualTo(ReplicationMessage.Operation.DDL);
+                    assertThat(message.getTable()).isEqualTo("-.customers.foo");
+                    assertThat(message.getDDL()).isEqualTo("ALTER TABLE customers.foo ADD bar INT default 10");
+                    assertThat(message.getSchemaChangeType()).isEqualTo(SchemaChangeEvent.SchemaChangeEventType.ALTER);
+                    processed[0] = true;
+                },
+                null,
+                false);
+        assertThat(processed[0]).isTrue();
+    }
+
+    @Test
+    public void shouldProcessDropDdlEvent() throws Exception {
+        // setup fixture
+        Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
+                .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
+                .setTimestamp(AnonymousValue.getLong())
+                .setStatement("DROP TABLE foo")
+                .build();
+
+        // exercise SUT
+        final boolean[] processed = { false };
+        decoder.processMessage(
+                event,
+                (message, vgtid, isLastRowEventOfTransaction) -> {
+                    // verify outcome
+                    assertThat(message).isNotNull();
+                    assertThat(message).isInstanceOf(DdlMessage.class);
+                    assertThat(message.getOperation()).isEqualTo(ReplicationMessage.Operation.DDL);
+                    assertThat(message.getTable()).isEqualTo("-.customers.foo");
+                    assertThat(message.getDDL()).isEqualTo("DROP TABLE foo");
+                    assertThat(message.getSchemaChangeType()).isEqualTo(SchemaChangeEvent.SchemaChangeEventType.DROP);
+                    processed[0] = true;
+                },
+                null,
+                false);
+        assertThat(processed[0]).isTrue();
+    }
+
+    @Test
+    public void shouldSupportTruncateTableEvent() throws Exception {
+        // setup fixture
+        Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
+                .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
+                .setTimestamp(AnonymousValue.getLong())
+                .setStatement("TRUNCATE TABLE foo")
+                .build();
+
+        // exercise SUT
+        final boolean[] processed = { false };
+        decoder.processMessage(
+                event,
+                (message, vgtid, isLastRowEventOfTransaction) -> {
+                    // verify outcome
+                    assertThat(message).isNotNull();
+                    assertThat(message).isInstanceOf(VStreamOutputReplicationMessage.class);
+                    assertThat(message.getOperation()).isEqualTo(ReplicationMessage.Operation.TRUNCATE);
+                    assertThat(message.getTable()).isEqualTo(VitessDatabaseSchema.buildTableId("-", "customers", "foo").toDoubleQuotedString());
+                    processed[0] = true;
+                },
+                null,
+                false);
+        assertThat(processed[0]).isTrue();
+    }
+
+    @Test
+    public void shouldSkipInvalidDDLEvent() throws Exception {
+        // setup fixture
+        Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
+                .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
+                .setTimestamp(AnonymousValue.getLong())
+                .setStatement("Hello World")
+                .build();
+
+        Exception exception = assertThrows(InterruptedException.class, () -> {
+            decoder.processMessage(
+                    event,
+                    (message, vgtid, isLastRowEventOfTransaction) -> {
+                        fail("should not reach here");
+                    },
+                    null,
+                    false);
+        });
+        assertEquals("Unable to parse DDL 'Hello World', skipping DDL", exception.getMessage());
+    }
+
+    @Test
+    public void shouldProcessCreateDdlEvent() throws Exception {
+        String stmt = "CREATE TABLE pet (name VARCHAR(20), owner VARCHAR(20),\n" +
+                "       species VARCHAR(20), sex CHAR(1), birth DATE, death DATE);";
+        // setup fixture
+        Binlogdata.VEvent event = Binlogdata.VEvent.newBuilder()
+                .setType(Binlogdata.VEventType.DDL)
+                .setKeyspace("customers")
+                .setShard("-")
+                .setTimestamp(AnonymousValue.getLong())
+                .setStatement(stmt)
+                .build();
+
+        // exercise SUT
+        final boolean[] processed = { false };
+        decoder.processMessage(
+                event,
+                (message, vgtid, isLastRowEventOfTransaction) -> {
+                    // verify outcome
+                    assertThat(message).isNotNull();
+                    assertThat(message).isInstanceOf(DdlMessage.class);
+                    assertThat(message.getOperation()).isEqualTo(ReplicationMessage.Operation.DDL);
+                    assertThat(message.getTable()).isEqualTo("-.customers.pet");
+                    assertThat(message.getDDL()).isEqualTo(stmt);
+                    assertThat(message.getSchemaChangeType()).isEqualTo(SchemaChangeEvent.SchemaChangeEventType.CREATE);
                     processed[0] = true;
                 },
                 null,

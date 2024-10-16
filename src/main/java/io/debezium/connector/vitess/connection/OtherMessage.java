@@ -8,6 +8,8 @@ package io.debezium.connector.vitess.connection;
 import java.time.Instant;
 import java.util.List;
 
+import io.debezium.schema.SchemaChangeEvent;
+
 /** Whether this message represents an OTHER event.*/
 public class OtherMessage implements ReplicationMessage {
 
@@ -19,6 +21,16 @@ public class OtherMessage implements ReplicationMessage {
         this.transactionId = transactionId;
         this.commitTime = commitTime;
         this.operation = Operation.OTHER;
+    }
+
+    @Override
+    public String getDDL() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SchemaChangeEvent.SchemaChangeEventType getSchemaChangeType() {
+        throw new UnsupportedOperationException();
     }
 
     @Override

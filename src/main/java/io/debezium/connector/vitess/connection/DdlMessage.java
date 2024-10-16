@@ -8,17 +8,41 @@ package io.debezium.connector.vitess.connection;
 import java.time.Instant;
 import java.util.List;
 
+import io.debezium.schema.SchemaChangeEvent;
+
 /** Whether this message represents a DDL event. We don't have the DDL statement here because we don't need it.*/
 public class DdlMessage implements ReplicationMessage {
 
     private final String transactionId;
     private final Instant commitTime;
     private final Operation operation;
+    private final String ddlStatement;
+    private final String tableName;
 
-    public DdlMessage(String transactionId, Instant commitTime) {
+    private final SchemaChangeEvent.SchemaChangeEventType schemaChangeType;
+
+    public DdlMessage(
+                      String transactionId,
+                      Instant commitTime,
+                      String tableName,
+                      String ddlStatement,
+                      SchemaChangeEvent.SchemaChangeEventType schemaChangeType) {
         this.transactionId = transactionId;
         this.commitTime = commitTime;
         this.operation = Operation.DDL;
+        this.ddlStatement = ddlStatement;
+        this.tableName = tableName;
+        this.schemaChangeType = schemaChangeType;
+    }
+
+    @Override
+    public String getDDL() {
+        return ddlStatement;
+    }
+
+    @Override
+    public SchemaChangeEvent.SchemaChangeEventType getSchemaChangeType() {
+        return schemaChangeType;
     }
 
     @Override
@@ -38,7 +62,7 @@ public class DdlMessage implements ReplicationMessage {
 
     @Override
     public String getTable() {
-        throw new UnsupportedOperationException();
+        return tableName;
     }
 
     @Override

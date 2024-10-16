@@ -17,6 +17,7 @@ import io.debezium.connector.vitess.connection.ReplicationMessageProcessor;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.StreamingChangeEventSource;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.util.Clock;
 import io.debezium.util.DelayStrategy;
@@ -104,9 +105,29 @@ public class VitessStreamingChangeEventSource implements StreamingChangeEventSou
                 }
                 return;
             }
-            else if (message.getOperation() == ReplicationMessage.Operation.DDL || message.getOperation() == ReplicationMessage.Operation.OTHER) {
-                // DDL event or OTHER event
+            else if (message.getOperation() == ReplicationMessage.Operation.OTHER) {
                 offsetContext.rotateVgtid(newVgtid, message.getCommitTime());
+            }
+            else if (message.getOperation() == ReplicationMessage.Operation.DDL) {
+                // DDL event
+                offsetContext.rotateVgtid(newVgtid, message.getCommitTime());
+
+                TableId tableId = VitessDatabaseSchema.parse(message.getTable());
+                Objects.requireNonNull(tableId);
+                LOGGER.info("found Table ID '{}', in DDL statement '{}'", tableId, message.getDDL());
+
+                Table table = schema.tableFor(tableId);
+                Objects.requireNonNull(table);
+
+                offsetContext.event(tableId, message.getCommitTime());
+                offsetContext.setShard("-");
+                LOGGER.info("calling dispatchSchemaChangeEvent for tableId {}", tableId);
+                dispatcher.dispatchSchemaChangeEvent(
+                        partition,
+                        offsetContext,
+                        tableId,
+                        new VitessDDLEmitter(
+                                partition, offsetContext, connectorConfig.ddlFilter(), schema, message));
             }
             else {
                 // DML event
@@ -119,6 +140,7 @@ public class VitessStreamingChangeEventSource implements StreamingChangeEventSou
                     // Right before processing the last row, reset the previous offset to the new vgtid so the last row has the new vgtid as offset.
                     offsetContext.resetVgtid(newVgtid, message.getCommitTime());
                 }
+
                 dispatcher.dispatchDataChangeEvent(
                         partition,
                         tableId,

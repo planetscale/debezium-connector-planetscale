@@ -5,14 +5,13 @@
  */
 package io.debezium.connector.vitess.connection;
 
-import static io.debezium.connector.vitess.connection.ReplicationMessage.Column;
-
 import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +28,19 @@ import io.debezium.relational.ColumnEditor;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableEditor;
 import io.debezium.relational.TableId;
+import io.debezium.schema.SchemaChangeEvent;
+import io.debezium.util.Strings;
 import io.vitess.proto.Query.Field;
 import io.vitess.proto.Query.Row;
 
 import binlogdata.Binlogdata;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.alter.Alter;
+import net.sf.jsqlparser.statement.create.table.CreateTable;
+import net.sf.jsqlparser.statement.drop.Drop;
+import net.sf.jsqlparser.statement.truncate.Truncate;
 
 public class VStreamOutputMessageDecoder implements MessageDecoder {
     private static final Logger LOGGER = LoggerFactory.getLogger(VStreamOutputMessageDecoder.class);
@@ -47,12 +55,19 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
 
     private final VitessDatabaseSchema schema;
 
-    public VStreamOutputMessageDecoder(VitessDatabaseSchema schema) {
+    private final Predicate<String> ddlFilter;
+
+    public VStreamOutputMessageDecoder(VitessDatabaseSchema schema, Predicate<String> ddlFilter) {
         this.schema = schema;
+        this.ddlFilter = ddlFilter;
     }
 
     @Override
-    public void processMessage(Binlogdata.VEvent vEvent, ReplicationMessageProcessor processor, Vgtid newVgtid, boolean isLastRowEventOfTransaction)
+    public void processMessage(
+                               Binlogdata.VEvent vEvent,
+                               ReplicationMessageProcessor processor,
+                               Vgtid newVgtid,
+                               boolean isLastRowEventOfTransaction)
             throws InterruptedException {
         final Binlogdata.VEventType vEventType = vEvent.getType();
         switch (vEventType) {
@@ -85,13 +100,64 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
 
     private void handleDdl(Binlogdata.VEvent vEvent, ReplicationMessageProcessor processor, Vgtid newVgtid)
             throws InterruptedException {
+        LOGGER.info("processing schema change event : {}", vEvent);
+
         this.commitTimestamp = Instant.ofEpochSecond(vEvent.getTimestamp());
         // Use the entire VGTID as transaction id
         if (newVgtid != null) {
             this.transactionId = newVgtid.toString();
         }
+
+        if (ddlFilter != null && ddlFilter.test(vEvent.getStatement())) {
+            LOGGER.debug("DDL '{}' was filtered out of processing", vEvent.getStatement());
+            return;
+        }
+        SchemaChangeEvent.SchemaChangeEventType schemaChangeType;
+        String tableName;
+        try {
+            Statement stmt = CCJSqlParserUtil.parse(vEvent.getStatement());
+
+            if (stmt instanceof Alter) {
+                schemaChangeType = SchemaChangeEvent.SchemaChangeEventType.ALTER;
+                tableName = ((Alter) stmt).getTable().getName();
+            }
+            else if (stmt instanceof CreateTable) {
+                schemaChangeType = SchemaChangeEvent.SchemaChangeEventType.CREATE;
+                tableName = ((CreateTable) stmt).getTable().getName();
+            }
+            else if (stmt instanceof Drop) {
+                schemaChangeType = SchemaChangeEvent.SchemaChangeEventType.DROP;
+                tableName = ((Drop) stmt).getName().getName();
+            }
+            else if (stmt instanceof Truncate) {
+                tableName = ((Truncate) stmt).getTable().getName();
+                decodeTruncate(vEvent.getKeyspace(), tableName, vEvent.getShard(), processor, newVgtid, true);
+                return;
+            }
+            else {
+                LOGGER.debug("Unknown statement type {} encountered, skipping DDL {}", stmt.getClass().getName(), vEvent.getStatement());
+                return;
+            }
+        }
+        catch (JSQLParserException parserException) {
+            throw new InterruptedException(String.format("Unable to parse DDL '%s', skipping DDL", vEvent.getStatement()));
+        }
+
+        if (Strings.isNullOrEmpty(tableName)) {
+            LOGGER.debug("Unable to extract table name from DDL '{}', skipping DDL ", vEvent.getStatement());
+            return;
+        }
+
+        tableName = VitessDatabaseSchema.buildTableId(vEvent.getShard(), vEvent.getKeyspace(), tableName).identifier();
         processor.process(
-                new DdlMessage(transactionId, commitTimestamp), newVgtid, false);
+                new DdlMessage(
+                        transactionId,
+                        commitTimestamp,
+                        tableName,
+                        vEvent.getStatement(),
+                        schemaChangeType),
+                newVgtid,
+                false);
     }
 
     private void handleOther(Binlogdata.VEvent vEvent, ReplicationMessageProcessor processor, Vgtid newVgtid)
@@ -206,6 +272,41 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
                         shard,
                         null,
                         columns),
+                newVgtid,
+                isLastRowEventOfTransaction);
+    }
+
+    private void decodeTruncate(
+                                String schemaName,
+                                String tableName,
+                                String shard,
+                                ReplicationMessageProcessor processor,
+                                Vgtid newVgtid,
+                                boolean isLastRowEventOfTransaction)
+            throws InterruptedException {
+        Optional<Table> resolvedTable = resolveRelation(shard, schemaName, tableName);
+
+        TableId tableId;
+        List<Column> columns = null;
+        if (!resolvedTable.isPresent()) {
+            LOGGER.trace("Row truncate for {}.{} is filtered out", schemaName, tableName);
+            tableId = VitessDatabaseSchema.buildTableId(shard, schemaName, tableName);
+            // no need for columns because the event will be filtered out
+        }
+        else {
+            Table table = resolvedTable.get();
+            tableId = table.id();
+        }
+
+        processor.process(
+                new VStreamOutputReplicationMessage(
+                        Operation.TRUNCATE,
+                        commitTimestamp,
+                        transactionId,
+                        tableId.toDoubleQuotedString(),
+                        shard,
+                        null,
+                        null),
                 newVgtid,
                 isLastRowEventOfTransaction);
     }
