@@ -7,6 +7,7 @@ package io.debezium.connector.vitess.connection;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,6 +25,8 @@ import io.debezium.connector.vitess.VitessConnector;
 import io.debezium.connector.vitess.VitessConnectorConfig;
 import io.debezium.connector.vitess.VitessConnectorConfig.SnapshotMode;
 import io.debezium.connector.vitess.VitessDatabaseSchema;
+import io.debezium.relational.TableId;
+import io.debezium.spi.schema.DataCollectionId;
 import io.debezium.util.Strings;
 import io.grpc.ChannelCredentials;
 import io.grpc.Grpc;
@@ -295,30 +298,52 @@ public class VitessReplicationConnection implements ReplicationConnection {
         }
 
         Vtgate.VStreamFlags vStreamFlags = flagBuilder.build();
-        // Add filtering for whitelist tables
-        Binlogdata.Filter.Builder filterBuilder = Binlogdata.Filter.newBuilder();
+
+        final Map<String, String> tableSQL = new HashMap<String, String>();
+
+        List<String> tables = VitessConnector.getKeyspaceTables(config);
+        LOGGER.info("Found tables in keyspace: {}.", Strings.join(",", tables));
+
         if (!Strings.isNullOrEmpty(config.tableIncludeList())) {
-
-            final String keyspace = config.getKeyspace();
-            final List<String> allTables = VitessConnector.getKeyspaceTables(config);
-            List<String> includedTables = VitessConnector.getIncludedTables(config.getKeyspace(),
-                    config.tableIncludeList(), allTables);
-
-            for (String table : includedTables) {
-                String sql = "select * from `" + table + "`";
-                if (config.isColumnsFiltered()) {
-                    List<String> allColumns = VitessConnector.getTableColumns(config, table);
-                    List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(), config.getColumnFilter(), allColumns, table);
-                    sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
-                }
-
-                LOGGER.info("Running Sql Query: {}", sql);
-                // See rule in: https://github.com/vitessio/vitess/blob/release-14.0/go/vt/vttablet/tabletserver/vstreamer/planbuilder.go#L316
-                Binlogdata.Rule rule = Binlogdata.Rule.newBuilder().setMatch(table).setFilter(sql).build();
-                LOGGER.info("Add vstream table filtering: {}", rule.getMatch());
-                filterBuilder.addRules(rule);
-            }
+            tables = VitessConnector.getIncludedTables(config.getKeyspace(),
+                    config.tableIncludeList(), tables);
+            LOGGER.info("Using only tables included in table include list: {}.", Strings.join(",", tables));
         }
+
+        for (String table : tables) {
+            String sql = "select * from `" + table + "`";
+            if (config.isColumnsFiltered()) {
+                List<String> allColumns = VitessConnector.getTableColumns(config, table);
+                List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(), config.getColumnFilter(), allColumns, table);
+                sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
+            }
+            tableSQL.put(table, sql);
+        }
+
+        Map<DataCollectionId, String> selectOverrides = config.getSnapshotSelectOverridesByTable();
+        if (!selectOverrides.isEmpty()) {
+            selectOverrides.forEach((dataCollectionId, selectOverride) -> {
+                TableId tableId = (TableId) dataCollectionId;
+                if (!tableSQL.containsKey(tableId.table())) {
+                    LOGGER.warn("Table {} is either not in the keyspace or in the table include list. Ignoring the select statement override.", tableId.table());
+                    return;
+                }
+                tableSQL.put(tableId.table(), selectOverride);
+            });
+        }
+
+        Binlogdata.Filter.Builder filterBuilder = Binlogdata.Filter.newBuilder();
+        for (Map.Entry<String, String> entry : tableSQL.entrySet()) {
+            String table = entry.getKey();
+            String sql = entry.getValue();
+            LOGGER.info("Running Sql Query: {}", sql);
+
+            // See rule in: https://github.com/vitessio/vitess/blob/release-14.0/go/vt/vttablet/tabletserver/vstreamer/planbuilder.go#L316
+            Binlogdata.Rule rule = Binlogdata.Rule.newBuilder().setMatch(table).setFilter(sql).build();
+            LOGGER.info("Add vstream table filtering: {}", rule.getMatch());
+            filterBuilder.addRules(rule);
+        }
+
         // Providing a vgtid MySQL56/19eb2657-abc2-11ea-8ffc-0242ac11000a:1-61 here will make VStream to
         // start receiving row-changes from MySQL56/19eb2657-abc2-11ea-8ffc-0242ac11000a:1-62
         Vtgate.VStreamRequest.Builder vstreamBuilder = Vtgate.VStreamRequest.newBuilder()
