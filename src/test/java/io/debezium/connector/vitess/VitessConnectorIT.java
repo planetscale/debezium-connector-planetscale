@@ -213,9 +213,22 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
 
         // apply DDL
         TestHelper.execute("ALTER TABLE numeric_table ADD foo INT default 10;");
-        // applying DDL for Vitess version v8.0.0 emits 1 gRPC responses: (VGTID, DDL)
-        // the VGTID is increased by 1.
-        int numOfGtidsFromDdl = 1;
+        // consume and ignore DDL event.
+        consumer.expects(expectedRecordsCount);
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+        consumer.remove();
+        // applying DDL for Vitess version v19 emits 8 VEvents, which
+        // increase the VGTID by 3.
+        //
+        // XXX(maxenglander):
+        //
+        // this is different from Vitess v12, which emits fewer VEvents and
+        // increases the VGTID by 1. i ran this test with the v2.4.0.Final
+        // version of the connector, and here's what showed up in the VStream output:
+        //
+        // v12: VStreamResponse[VTGTID, DDL]
+        // v19: VStreamResponse[VTGTID, DDL], VStreamResponse[BEGIN, VTGTID, COMMIT], VStreamResponse[BEGIN, VTGTID, COMMIT]
+        int numOfGtidsFromDdl = 3;
 
         // insert 1 row
         consumer.expects(expectedRecordsCount);

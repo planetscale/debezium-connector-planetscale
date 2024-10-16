@@ -85,7 +85,7 @@ public class VitessBigIntUnsignedTest {
                 connectorConfig,
                 SchemaNameAdjuster.create(),
                 (TopicNamingStrategy) DefaultTopicNamingStrategy.create(connectorConfig));
-        decoder = new VStreamOutputMessageDecoder(schema);
+        decoder = new VStreamOutputMessageDecoder(schema, null);
         // initialize schema by FIELD event
         decoder.processMessage(TestHelper.newFieldEvent(defaultColumnValues(mode)), null, null, false);
         Table table = schema.tableFor(TestHelper.defaultTableId());

@@ -8,6 +8,8 @@ package io.debezium.connector.vitess.connection;
 import java.time.Instant;
 import java.util.List;
 
+import io.debezium.schema.SchemaChangeEvent;
+
 /**
  * A logical representation of row-insert, row-update, row-delete. It contains each columns' type
  * and value.
@@ -42,6 +44,14 @@ public class VStreamOutputReplicationMessage implements ReplicationMessage {
     @Override
     public Operation getOperation() {
         return op;
+    }
+
+    public SchemaChangeEvent.SchemaChangeEventType getSchemaChangeType() {
+        throw new UnsupportedOperationException();
+    }
+
+    public String getDDL() {
+        throw new UnsupportedOperationException();
     }
 
     @Override

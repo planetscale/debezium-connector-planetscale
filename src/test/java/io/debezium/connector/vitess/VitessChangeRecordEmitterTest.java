@@ -36,7 +36,7 @@ public class VitessChangeRecordEmitterTest {
                 connectorConfig,
                 SchemaNameAdjuster.create(),
                 (TopicNamingStrategy) DefaultTopicNamingStrategy.create(connectorConfig));
-        decoder = new VStreamOutputMessageDecoder(schema);
+        decoder = new VStreamOutputMessageDecoder(schema, connectorConfig.ddlFilter());
         // initialize schema by FIELD event
         decoder.processMessage(TestHelper.defaultFieldEvent(), null, null, false);
     }
@@ -66,6 +66,32 @@ public class VitessChangeRecordEmitterTest {
         assertThat(emitter.getOperation()).isEqualTo(Envelope.Operation.CREATE);
         assertThat(emitter.getOldColumnValues()).isNull();
         assertThat(emitter.getNewColumnValues()).isEqualTo(TestHelper.defaultJavaValues().toArray());
+    }
+
+    @Test
+    public void shouldHaveNullColumnsForTruncateMessage() {
+        // setup fixture
+        ReplicationMessage message = new VStreamOutputReplicationMessage(
+                ReplicationMessage.Operation.TRUNCATE,
+                AnonymousValue.getInstant(),
+                AnonymousValue.getString(),
+                TestHelper.defaultTableId().toDoubleQuotedString(),
+                AnonymousValue.getString(),
+                null,
+                TestHelper.defaultRelationMessageColumns());
+
+        // exercise SUT
+        VitessChangeRecordEmitter emitter = new VitessChangeRecordEmitter(
+                initializePartition(),
+                null,
+                Clock.system(),
+                new VitessConnectorConfig(TestHelper.defaultConfig().build()),
+                schema,
+                message);
+        // verify outcome
+        assertThat(emitter.getOperation()).isEqualTo(Envelope.Operation.TRUNCATE);
+        assertThat(emitter.getOldColumnValues()).isNull();
+        assertThat(emitter.getNewColumnValues()).isNull();
     }
 
     @Test

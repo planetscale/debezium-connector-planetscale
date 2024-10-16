@@ -8,6 +8,8 @@ package io.debezium.connector.vitess.connection;
 import java.time.Instant;
 import java.util.List;
 
+import io.debezium.schema.SchemaChangeEvent;
+
 /** Whether this message represents the begin or end of a transaction. */
 public class TransactionalMessage implements ReplicationMessage {
 
@@ -26,6 +28,10 @@ public class TransactionalMessage implements ReplicationMessage {
         return operation;
     }
 
+    public SchemaChangeEvent.SchemaChangeEventType getSchemaChangeType() {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public Instant getCommitTime() {
         return commitTime;
@@ -38,6 +44,10 @@ public class TransactionalMessage implements ReplicationMessage {
 
     @Override
     public String getTable() {
+        throw new UnsupportedOperationException();
+    }
+
+    public String getDDL() {
         throw new UnsupportedOperationException();
     }
 

@@ -44,7 +44,10 @@ import io.debezium.connector.vitess.connection.BasicAuthenticationInterceptor;
 import io.debezium.connector.vitess.connection.VitessTabletType;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.relational.ColumnFilterMode;
+import io.debezium.relational.HistorizedRelationalDatabaseConnectorConfig;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
+import io.debezium.relational.Tables.TableFilter;
+import io.debezium.relational.history.HistoryRecordComparator;
 import io.debezium.util.Strings;
 import io.grpc.ChannelCredentials;
 import io.grpc.TlsChannelCredentials;
@@ -53,7 +56,7 @@ import io.grpc.TlsChannelCredentials;
  * Vitess connector configuration, including its specific configurations and the common
  * configurations from Debezium.
  */
-public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
+public class VitessConnectorConfig extends HistorizedRelationalDatabaseConnectorConfig {
 
     public static final List<String> EMPTY_GTID_LIST = List.of(Vgtid.EMPTY_GTID);
     public static final List<String> DEFAULT_GTID_LIST = List.of(Vgtid.CURRENT_GTID);
@@ -66,6 +69,11 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
 
     public String getCells() {
         return getConfig().getString(VITESS_CELLS);
+    }
+
+    @Override
+    protected HistoryRecordComparator getHistoryRecordComparator() {
+        return new HistoryRecordComparator();
     }
 
     /**
@@ -519,11 +527,14 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
 
     public VitessConnectorConfig(Configuration config) {
         super(
+                VitessConnector.class,
                 config,
-                null, x -> x.schema() + "." + x.table(),
-                -1,
+                TableFilter.includeAll(),
+                new VitessTableIdToStringMapper(),
+                true,
+                DEFAULT_SNAPSHOT_FETCH_SIZE,
                 ColumnFilterMode.CATALOG,
-                true);
+                false);
     }
 
     @Override

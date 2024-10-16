@@ -38,10 +38,14 @@ public class VitessOffsetContextTest {
 
     @Before
     public void before() {
-        loader = new VitessOffsetContext.Loader(
+        offsetContext = generateOffsetContext();
+    }
+
+    public static VitessOffsetContext generateOffsetContext() {
+        VitessOffsetContext.Loader loader = new VitessOffsetContext.Loader(
                 new VitessConnectorConfig(TestHelper.defaultConfig().build()));
 
-        offsetContext = (VitessOffsetContext) loader.load(Collect.hashMapOf(SourceInfo.VGTID_KEY, VGTID_JSON));
+        return (VitessOffsetContext) loader.load(Collect.hashMapOf(SourceInfo.VGTID_KEY, VGTID_JSON));
     }
 
     @Test

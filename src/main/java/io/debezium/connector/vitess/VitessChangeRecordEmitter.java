@@ -21,6 +21,7 @@ import io.debezium.relational.Column;
 import io.debezium.relational.RelationalChangeRecordEmitter;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.relational.TableSchema;
 import io.debezium.util.Clock;
 import io.debezium.util.Strings;
 
@@ -62,6 +63,8 @@ class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPart
                 return Envelope.Operation.UPDATE;
             case DELETE:
                 return Envelope.Operation.DELETE;
+            case TRUNCATE:
+                return Envelope.Operation.TRUNCATE;
             default:
                 throw new IllegalArgumentException(
                         "Received event of unexpected command type: " + message.getOperation());
@@ -72,6 +75,7 @@ class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPart
     protected Object[] getOldColumnValues() {
         switch (getOperation()) {
             case CREATE:
+            case TRUNCATE:
                 return null;
             default:
                 // UPDATE and DELETE have old values
@@ -89,6 +93,12 @@ class VitessChangeRecordEmitter extends RelationalChangeRecordEmitter<VitessPart
                 // DELETE does not have new values
                 return null;
         }
+    }
+
+    @Override
+    protected void emitTruncateRecord(Receiver receiver, TableSchema tableSchema) throws InterruptedException {
+        Struct envelope = tableSchema.getEnvelopeSchema().truncate(getOffset().getSourceInfo(), getClock().currentTimeAsInstant());
+        receiver.changeRecord(getPartition(), tableSchema, Envelope.Operation.TRUNCATE, null, envelope, getOffset(), null);
     }
 
     private Object[] columnValues(List<ReplicationMessage.Column> columns, TableId tableId) {
