@@ -41,8 +41,33 @@ public class VitessType {
         return jdbcId;
     }
 
+    public Integer getEnumOrdinal(String value) {
+        int index = enumValues.indexOf(value);
+        if (index == -1) {
+            return Integer.valueOf(value);
+        }
+        return Integer.valueOf(index + 1);
+    }
+
     public List<String> getEnumValues() {
         return enumValues;
+    }
+
+    public Long getSetNumeral(String value) {
+        String[] members = value.split(",");
+        Long result = 0L;
+        for (String member : members) {
+            long index = enumValues.indexOf(member);
+            if (index == -1) {
+                index = Long.valueOf(member);
+                return index;
+            }
+            else {
+                Double power = Math.pow(2, index);
+                result = result + Long.valueOf(power.longValue());
+            }
+        }
+        return result;
     }
 
     public boolean isEnum() {

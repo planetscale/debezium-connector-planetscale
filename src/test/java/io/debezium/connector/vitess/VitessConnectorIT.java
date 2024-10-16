@@ -990,6 +990,28 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         consumer.await(Math.min(2, TestHelper.waitTimeForRecords()), TimeUnit.SECONDS);
     }
 
+    @Test
+    public void shouldHandleEnumAndSetDuringTableCopy() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+
+        TestHelper.execute(INSERT_ENUM_TYPE_STMT, TEST_UNSHARDED_KEYSPACE);
+        TestHelper.execute(INSERT_SET_TYPE_STMT, TEST_UNSHARDED_KEYSPACE);
+
+        final String enumTableName = "enum_table";
+        final String setTableName = "set_table";
+
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + enumTableName + "," + TEST_UNSHARDED_KEYSPACE + "." + setTableName;
+        startConnector(Function.identity(), false, false, 1,
+                -1, -1, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL, TestHelper.TEST_SHARD);
+
+        int expectedRecordsCount = 2;
+        consumer = testConsumer(expectedRecordsCount);
+
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+
+        stopConnector();
+    }
+
     private void testOffsetStorage(boolean offsetStoragePerTask) throws Exception {
         TestHelper.executeDDL("vitess_create_tables.ddl", TEST_UNSHARDED_KEYSPACE);
 

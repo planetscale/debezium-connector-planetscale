@@ -22,8 +22,14 @@ public class ReplicationMessageColumnValueResolver {
             case Types.SMALLINT:
                 return value.asShort();
             case Types.INTEGER:
+                if (vitessType.isEnum()) {
+                    return vitessType.getEnumOrdinal(value.asString());
+                }
                 return value.asInteger();
             case Types.BIGINT:
+                if (vitessType.isEnum()) {
+                    return vitessType.getSetNumeral(value.asString());
+                }
                 return value.asLong();
             case Types.BLOB:
             case Types.BINARY:
