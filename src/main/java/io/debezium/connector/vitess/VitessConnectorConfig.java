@@ -64,6 +64,10 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
     private static final String VITESS_CONFIG_GROUP_PREFIX = "vitess.";
     private static final int DEFAULT_VTGATE_PORT = 15_991;
 
+    public String getCells() {
+        return getConfig().getString(VITESS_CELLS);
+    }
+
     /**
      * The set of predefined SnapshotMode options or aliases.
      */
@@ -252,6 +256,14 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
             .withImportance(ConfigDef.Importance.HIGH)
             .withValidation(Field::isRequired)
             .withDescription("Resolvable hostname or IP address of the Vitess VTGate gRPC server.");
+
+    public static final Field VITESS_CELLS = Field.create(VITESS_CONFIG_GROUP_PREFIX + "cells")
+            .withDisplayName("Vitess cell names")
+            .withType(Type.STRING)
+            .withWidth(Width.MEDIUM)
+            .withImportance(ConfigDef.Importance.HIGH)
+            .withValidation(Field::isRequired)
+            .withDescription("Comma separated list of cells to target with vstream.");
 
     public static final Field VTGATE_PORT = Field.create(DATABASE_CONFIG_PREFIX + JdbcConfiguration.PORT)
             .withDisplayName("Vitess database port")
