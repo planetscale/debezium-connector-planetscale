@@ -207,8 +207,13 @@ public class VitessReplicationConnection implements ReplicationConnection {
                             // See:
                             // https://github.com/vitessio/vitess/blob/v19.0.0/go/vt/vtgate/vstream_manager.go#L791-L808
                             if (event.getKeyspace() == "" && event.getShard() == "") {
+                                LOGGER.info("Received COPY_COMPLETED event for all keyspaces and shards");
                                 offsetContext.markSnapshotRecord(SnapshotRecord.FALSE);
                                 copyCompletedEventSeen = true;
+                            }
+                            else {
+                                LOGGER.info("Received COPY_COMPLETED event for keyspace {} and shard {}",
+                                        event.getKeyspace(), event.getShard());
                             }
                             continue;
                         case DDL:
@@ -398,6 +403,12 @@ public class VitessReplicationConnection implements ReplicationConnection {
                 .setFlags(vStreamFlags);
         if (filterBuilder.getRulesCount() > 0) {
             vstreamBuilder.setFilter(filterBuilder);
+        }
+        if (config.getSnapshotMode() != SnapshotMode.NEVER) {
+            LOGGER.info("Starting VStream with snapshot mode: {}", config.getSnapshotMode());
+        }
+        else {
+            LOGGER.info("Starting VStream without snapshot");
         }
         stub.vStream(
                 vstreamBuilder.build(),
