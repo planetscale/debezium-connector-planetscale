@@ -7,6 +7,8 @@ package io.debezium.connector.vitess.connection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.sql.Types;
 
 import org.junit.Test;
@@ -104,5 +106,32 @@ public class ReplicationMessageColumnValueResolverTest {
                 new VitessColumnValue("foo".getBytes()),
                 false);
         assertThat(resolvedJavaValue).isNull();
+    }
+
+    @Test
+    public void shouldResolveDateToDate() {
+        Object resolvedJavaValue = ReplicationMessageColumnValueResolver.resolveValue(
+                new VitessType(AnonymousValue.getString(), Types.DATE),
+                new VitessColumnValue("1999-12-31".getBytes()),
+                false);
+        assertThat(resolvedJavaValue).isEqualTo(Date.valueOf("1999-12-31"));
+    }
+
+    @Test
+    public void shouldResolveTimestampToTimestamp() {
+        Object resolvedJavaValue = ReplicationMessageColumnValueResolver.resolveValue(
+                new VitessType(AnonymousValue.getString(), Types.TIMESTAMP),
+                new VitessColumnValue("1999-12-31 23:59:59".getBytes()),
+                false);
+        assertThat(resolvedJavaValue).isEqualTo(Timestamp.valueOf("1999-12-31 23:59:59"));
+    }
+
+    @Test
+    public void shouldResolveTimestampWithTimeoneToString() {
+        Object resolvedJavaValue = ReplicationMessageColumnValueResolver.resolveValue(
+                new VitessType(AnonymousValue.getString(), Types.TIMESTAMP_WITH_TIMEZONE),
+                new VitessColumnValue("1999-12-31 23:59:59".getBytes()),
+                false);
+        assertThat(resolvedJavaValue).isEqualTo("1999-12-31 23:59:59");
     }
 }

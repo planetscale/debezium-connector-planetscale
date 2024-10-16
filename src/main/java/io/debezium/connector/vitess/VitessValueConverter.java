@@ -6,7 +6,6 @@
 package io.debezium.connector.vitess;
 
 import java.math.BigDecimal;
-import java.time.ZoneOffset;
 import java.util.List;
 
 import org.apache.kafka.connect.data.Decimal;
@@ -15,8 +14,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
 import io.debezium.config.CommonConnectorConfig.BinaryHandlingMode;
+import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.data.Json;
-import io.debezium.jdbc.JdbcValueConverters;
 import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.Column;
 import io.debezium.relational.RelationalChangeRecordEmitter;
@@ -24,7 +23,7 @@ import io.debezium.relational.ValueConverter;
 import io.vitess.proto.Query;
 
 /** Used by {@link RelationalChangeRecordEmitter} to convert Java value to Connect value */
-public class VitessValueConverter extends JdbcValueConverters {
+public class VitessValueConverter extends MySqlValueConverters {
     private static final BigDecimal BIGINT_MAX_VALUE = new BigDecimal("18446744073709551615");
     private static final BigDecimal BIGINT_CORRECTION = BIGINT_MAX_VALUE.add(BigDecimal.ONE);
 
@@ -34,11 +33,16 @@ public class VitessValueConverter extends JdbcValueConverters {
     public VitessValueConverter(
                                 DecimalMode decimalMode,
                                 TemporalPrecisionMode temporalPrecisionMode,
-                                ZoneOffset defaultOffset,
                                 BinaryHandlingMode binaryMode,
                                 boolean includeUnknownDatatypes,
                                 VitessConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode) {
-        super(decimalMode, temporalPrecisionMode, defaultOffset, null, null, binaryMode);
+        super(
+                decimalMode,
+                temporalPrecisionMode,
+                null/* bigint unsigned mode */,
+                binaryMode,
+                x -> x,
+                null);
         this.includeUnknownDatatypes = includeUnknownDatatypes;
         this.bigIntUnsignedHandlingMode = bigIntUnsignedHandlingMode;
     }
@@ -186,7 +190,7 @@ public class VitessValueConverter extends JdbcValueConverters {
      * @param data the data object to be converted into an {@code ENUM} literal String value
      * @return the converted value, or empty string if the conversion could not be made
      */
-    private Object convertEnumToString(List<String> options, Column column, Field fieldDefn, Object data) {
+    protected Object convertEnumToString(List<String> options, Column column, Field fieldDefn, Object data) {
         return convertValue(column, fieldDefn, data, "", (r) -> {
             if (options != null) {
                 // The binlog will contain an int with the 1-based index of the option in the enum value ...

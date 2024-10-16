@@ -5,8 +5,6 @@
  */
 package io.debezium.connector.vitess;
 
-import java.time.ZoneOffset;
-
 import org.apache.kafka.connect.data.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +39,6 @@ public class VitessDatabaseSchema extends HistorizedRelationalDatabaseSchema {
                         new VitessValueConverter(
                                 config.getDecimalMode(),
                                 config.getTemporalPrecisionMode(),
-                                ZoneOffset.UTC,
                                 config.binaryHandlingMode(),
                                 config.includeUnknownDatatypes(),
                                 config.getBigIntUnsgnedHandlingMode()),
