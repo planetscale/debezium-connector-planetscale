@@ -5,16 +5,17 @@
  */
 package io.debezium.connector.vitess;
 
-import java.time.ZoneOffset;
-
 import org.apache.kafka.connect.data.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.debezium.relational.RelationalDatabaseSchema;
+import io.debezium.relational.HistorizedRelationalDatabaseSchema;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.TableSchemaBuilder;
+import io.debezium.relational.ddl.DdlParser;
+import io.debezium.relational.history.TableChanges;
+import io.debezium.schema.SchemaChangeEvent;
 import io.debezium.schema.SchemaNameAdjuster;
 import io.debezium.spi.topic.TopicNamingStrategy;
 
@@ -22,7 +23,7 @@ import io.debezium.spi.topic.TopicNamingStrategy;
  * Logical in-memory representation of Vitess schema (a.k.a Vitess keyspace). It is used to create
  * kafka connect {@link Schema} for all tables.
  */
-public class VitessDatabaseSchema extends RelationalDatabaseSchema {
+public class VitessDatabaseSchema extends HistorizedRelationalDatabaseSchema {
     private static final Logger LOGGER = LoggerFactory.getLogger(VitessDatabaseSchema.class);
 
     public VitessDatabaseSchema(
@@ -38,7 +39,6 @@ public class VitessDatabaseSchema extends RelationalDatabaseSchema {
                         new VitessValueConverter(
                                 config.getDecimalMode(),
                                 config.getTemporalPrecisionMode(),
-                                ZoneOffset.UTC,
                                 config.binaryHandlingMode(),
                                 config.includeUnknownDatatypes(),
                                 config.getBigIntUnsgnedHandlingMode()),
@@ -97,5 +97,39 @@ public class VitessDatabaseSchema extends RelationalDatabaseSchema {
      */
     public static TableId buildTableId(String shard, String keyspace, String table) {
         return new TableId(shard, keyspace, table);
+    }
+
+    @Override
+    protected DdlParser getDdlParser() {
+        return null;
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent schemaChange) {
+        LOGGER.info("Applying schema change event {}", schemaChange);
+
+        // just a single table per DDL event for MySQL Server
+        Table table = schemaChange.getTables().iterator().next();
+        buildAndRegisterSchema(table);
+        tables().overwriteTable(table);
+
+        TableChanges tableChanges = null;
+        if (schemaChange.getType() == SchemaChangeEvent.SchemaChangeEventType.CREATE) {
+            tableChanges = new TableChanges();
+            tableChanges.create(table);
+        }
+        else if (schemaChange.getType() == SchemaChangeEvent.SchemaChangeEventType.ALTER) {
+            tableChanges = new TableChanges();
+            tableChanges.alter(table);
+        }
+
+        record(schemaChange, tableChanges);
+    }
+
+    /**
+     * Return true if the database schema history entity exists
+     */
+    public boolean historyExists() {
+        return schemaHistory.exists();
     }
 }
