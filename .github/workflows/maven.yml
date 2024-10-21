@@ -23,7 +23,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: debezium/debezium
-          ref: ${{ github.ref }}
+          #ref: ${{ github.ref }}
+          # XXX(maxenglander): all the commits in the 2.4.0-planetscale branch
+          # descend from upstream 2.4.0.Final.
+          ref: v2.4.0.Final
           path: core
       - name: Checkout Vitess connector
         uses: actions/checkout@v4
