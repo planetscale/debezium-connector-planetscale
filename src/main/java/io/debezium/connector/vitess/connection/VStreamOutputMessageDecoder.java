@@ -144,14 +144,16 @@ public class VStreamOutputMessageDecoder implements MessageDecoder {
             }
         }
         catch (JSQLParserException parserException) {
-            throw new InterruptedException(String.format("Unable to parse DDL '%s', skipping DDL", vEvent.getStatement()));
-        }
-
-        if (Strings.isNullOrEmpty(tableName)) {
-            LOGGER.debug("Unable to extract table name from DDL '{}', skipping DDL ", vEvent.getStatement());
+            LOGGER.error("Unable to parse DDL '{}', skipping DDL ", vEvent.getStatement());
             return;
         }
 
+        if (Strings.isNullOrEmpty(tableName)) {
+            LOGGER.warn("Unable to extract table name from DDL '{}', skipping DDL ", vEvent.getStatement());
+            return;
+        }
+
+        LOGGER.info("Processing DDL event for table {}", tableName);
         tableName = VitessDatabaseSchema.buildTableId(vEvent.getShard(), vEvent.getKeyspace(), tableName).identifier();
         processor.process(
                 new DdlMessage(

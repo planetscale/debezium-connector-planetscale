@@ -79,7 +79,7 @@ public class VitessReplicationConnectionIT {
         VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
         offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
                 offsetContext,
@@ -126,7 +126,7 @@ public class VitessReplicationConnectionIT {
         VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
         offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
                 offsetContext,
@@ -172,7 +172,7 @@ public class VitessReplicationConnectionIT {
         VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
         offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
                 offsetContext,
@@ -219,7 +219,7 @@ public class VitessReplicationConnectionIT {
         VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
         offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+        BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
         AtomicBoolean started = new AtomicBoolean(false);
         connection.startStreaming(
                 offsetContext,
@@ -262,7 +262,7 @@ public class VitessReplicationConnectionIT {
             VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
             offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
             AtomicBoolean started = new AtomicBoolean(false);
             connection.startStreaming(
                     offsetContext,
@@ -334,7 +334,7 @@ public class VitessReplicationConnectionIT {
             VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
             offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
             connection.startStreaming(
                     offsetContext,
                     (message, vgtid, isLastRowEventOfTransaction) -> {
@@ -412,7 +412,7 @@ public class VitessReplicationConnectionIT {
             VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
             offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
             AtomicBoolean started = new AtomicBoolean(false);
             connection.startStreaming(
                     offsetContext,
@@ -499,7 +499,7 @@ public class VitessReplicationConnectionIT {
             VitessOffsetContext offsetContext = VitessOffsetContext.initialContext(snapshot, conf, Clock.SYSTEM);
             offsetContext.resetVgtid(startingVgtid, Clock.SYSTEM.currentTimeAsInstant());
 
-            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(100);
+            BlockingQueue<MessageAndVgtid> consumedMessages = new ArrayBlockingQueue<>(1000);
             connection.startStreaming(
                     offsetContext,
                     (message, vgtid, isLastRowEventOfTransaction) -> {

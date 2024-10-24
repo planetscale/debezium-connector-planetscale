@@ -139,7 +139,10 @@ public class VitessStreamingChangeEventSource
                 LOGGER.info("found Table ID '{}', in DDL statement '{}'", tableId, message.getDDL());
 
                 Table table = schema.tableFor(tableId);
-                Objects.requireNonNull(table);
+                if (table == null) {
+                    LOGGER.info("Table '{}' not found in schema, skipping DDL event", tableId);
+                    return;
+                }
 
                 offsetContext.event(tableId, message.getCommitTime());
                 offsetContext.setShard("-");

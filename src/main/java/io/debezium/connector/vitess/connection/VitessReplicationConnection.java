@@ -117,7 +117,13 @@ public class VitessReplicationConnection implements ReplicationConnection {
             stub = MetadataUtils.attachHeaders(stub, metadata);
         }
 
-        final Instant startedStreamingAt = VitessConnector.getCurrentTimestamp(config);
+        final Instant startedSnapshotAt;
+        if (config.getSnapshotMode() == SnapshotMode.INITIAL_ONLY) {
+            startedSnapshotAt = VitessConnector.getCurrentTimestamp(config);
+        }
+        else {
+            startedSnapshotAt = null;
+        }
 
         StreamObserver<Vtgate.VStreamResponse> responseObserver = new ClientResponseObserver<Vtgate.VStreamRequest, Vtgate.VStreamResponse>() {
             private ClientCallStreamObserver<VStreamRequest> requestStream;
@@ -265,7 +271,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
                                 processor, newVgtid,
                                 isLastRowEventOfTransaction,
                                 offsetContext.isSnapshotRunning(),
-                                startedStreamingAt);
+                                startedSnapshotAt);
                     }
                 }
                 catch (InterruptedException e) {
@@ -340,41 +346,37 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
         final Map<String, String> tableSQL = new HashMap<String, String>();
 
-        List<String> tables = VitessConnector.getKeyspaceTables(config);
-        LOGGER.info("Found tables in keyspace: {}.", Strings.join(",", tables));
+        if (!Strings.isNullOrEmpty(config.tableIncludeList()) || config.isColumnsFiltered()) {
+            List<String> tables = VitessConnector.getKeyspaceTables(config);
+            LOGGER.info("Found tables in keyspace: {}.", Strings.join(",", tables));
 
-        if (!Strings.isNullOrEmpty(config.tableIncludeList())) {
-            tables = VitessConnector.getIncludedTables(config.getKeyspace(),
-                    config.tableIncludeList(), tables);
-            LOGGER.info("Using only tables included in table include list: {}.", Strings.join(",", tables));
-        }
-
-        for (String table : tables) {
-            String sql = "select * from `" + table + "`";
-            if (config.isColumnsFiltered()) {
-                List<String> allColumns = VitessConnector.getTableColumns(config, table);
-                List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(),
-                        config.getColumnFilter(), allColumns, table);
-                sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
-                List<String> escapedColumns = new ArrayList<String>();
-                for (String includedColumn : includedColumns) {
-                    escapedColumns.add(String.format("`%s`", includedColumn));
-                }
-                sql = String.format("select %s from `%s`", String.join(",", escapedColumns), table);
+            if (!Strings.isNullOrEmpty(config.tableIncludeList())) {
+                tables = VitessConnector.getIncludedTables(config.getKeyspace(),
+                        config.tableIncludeList(), tables);
+                LOGGER.info("Using only tables included in table include list: {}.", Strings.join(",", tables));
             }
-            tableSQL.put(table, sql);
+
+            for (String table : tables) {
+                String sql = "select * from `" + table + "`";
+                if (config.isColumnsFiltered()) {
+                    List<String> allColumns = VitessConnector.getTableColumns(config, table);
+                    List<String> includedColumns = VitessConnector.getColumnsForTable(config.getKeyspace(),
+                            config.getColumnFilter(), allColumns, table);
+                    sql = String.format("select %s from `%s`", String.join(",", includedColumns), table);
+                    List<String> escapedColumns = new ArrayList<String>();
+                    for (String includedColumn : includedColumns) {
+                        escapedColumns.add(String.format("`%s`", includedColumn));
+                    }
+                    sql = String.format("select %s from `%s`", String.join(",", escapedColumns), table);
+                }
+                tableSQL.put(table, sql);
+            }
         }
 
         Map<DataCollectionId, String> selectOverrides = config.getSnapshotSelectOverridesByTable();
         if (!selectOverrides.isEmpty()) {
             selectOverrides.forEach((dataCollectionId, selectOverride) -> {
                 TableId tableId = (TableId) dataCollectionId;
-                if (!tableSQL.containsKey(tableId.table())) {
-                    LOGGER.warn(
-                            "Table {} is either not in the keyspace or in the table include list. Ignoring the select statement override.",
-                            tableId.table());
-                    return;
-                }
                 tableSQL.put(tableId.table(), selectOverride);
             });
         }

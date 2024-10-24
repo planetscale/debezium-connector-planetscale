@@ -5,10 +5,8 @@
  */
 package io.debezium.connector.vitess.connection;
 
-import static junit.framework.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import java.util.function.Predicate;
@@ -326,18 +324,15 @@ public class VStreamOutputMessageDecoderTest {
                 .setStatement("Hello World")
                 .build();
 
-        Exception exception = assertThrows(InterruptedException.class, () -> {
-            decoder.processMessage(
-                    event,
-                    (message, vgtid, isLastRowEventOfTransaction) -> {
-                        fail("should not reach here");
-                    },
-                    null,
-                    false,
-                    false,
-                    null);
-        });
-        assertEquals("Unable to parse DDL 'Hello World', skipping DDL", exception.getMessage());
+        decoder.processMessage(
+                event,
+                (message, vgtid, isLastRowEventOfTransaction) -> {
+                    fail("should not reach here");
+                },
+                null,
+                false,
+                false,
+                null);
     }
 
     @Test
