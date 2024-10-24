@@ -41,8 +41,33 @@ public class VitessType {
         return jdbcId;
     }
 
+    public Integer getEnumOrdinal(String value) {
+        int index = enumValues.indexOf(value);
+        if (index == -1) {
+            return Integer.valueOf(value);
+        }
+        return Integer.valueOf(index + 1);
+    }
+
     public List<String> getEnumValues() {
         return enumValues;
+    }
+
+    public Long getSetNumeral(String value) {
+        String[] members = value.split(",");
+        Long result = 0L;
+        for (String member : members) {
+            long index = enumValues.indexOf(member);
+            if (index == -1) {
+                index = Long.valueOf(member);
+                return index;
+            }
+            else {
+                Double power = Math.pow(2, index);
+                result = result + Long.valueOf(power.longValue());
+            }
+        }
+        return result;
     }
 
     public boolean isEnum() {
@@ -109,14 +134,18 @@ public class VitessType {
             case "TEXT":
             case "JSON":
             case "DECIMAL":
-            case "TIME":
-            case "DATE":
-            case "DATETIME":
-            case "TIMESTAMP":
             case "YEAR":
                 return new VitessType(type, Types.VARCHAR);
+            case "DATE":
+                return new VitessType(type, Types.DATE);
+            case "DATETIME":
+                return new VitessType(type, Types.TIMESTAMP);
+            case "TIME":
+                return new VitessType(type, Types.TIME);
+            case "TIMESTAMP":
+                return new VitessType(type, Types.TIMESTAMP_WITH_TIMEZONE);
             case "FLOAT32":
-                return new VitessType(type, Types.FLOAT);
+                return new VitessType(type, Types.DOUBLE);
             case "FLOAT64":
                 return new VitessType(type, Types.DOUBLE);
             default:

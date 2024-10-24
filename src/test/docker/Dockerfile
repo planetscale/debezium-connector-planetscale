@@ -1,11 +1,11 @@
 # Use a temporary layer for the build stage.
-FROM vitess/base:v12.0.3 AS base
+FROM vitess/base:v19.0.4 AS base
 
-FROM vitess/lite:v12.0.3
+FROM vitess/lite:v19.0.4
 
 USER root
 
-RUN apt-key adv --no-tty --recv-keys --keyserver keyserver.ubuntu.com 467B942D3A79BD29
+RUN apt-key adv --no-tty --recv-keys --keyserver keyserver.ubuntu.com B7B3B788A8D3785C
 RUN apt-get update
 RUN apt-get install -y sudo curl vim jq
 

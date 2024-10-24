@@ -5,6 +5,8 @@
  */
 package io.debezium.connector.vitess;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +34,7 @@ import io.debezium.config.Configuration;
 import io.debezium.connector.common.RelationalBaseSourceConnector;
 import io.debezium.connector.vitess.connection.VitessReplicationConnection;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
+import io.debezium.relational.Tables;
 import io.debezium.util.Strings;
 import io.grpc.StatusRuntimeException;
 import io.vitess.proto.Query;
@@ -59,7 +62,8 @@ public class VitessConnector extends RelationalBaseSourceConnector {
     }
 
     protected Map<String, String> getGtidPerShardFromStorage(int numTasks, int gen, boolean expectsOffset) {
-        // Note that in integration test, EmbeddedEngine didn't initialize SourceConnector with SourceConnectorContext
+        // Note that in integration test, EmbeddedEngine didn't initialize
+        // SourceConnector with SourceConnectorContext
         if (context == null
                 || !(context instanceof SourceConnectorContext) || context().offsetStorageReader() == null) {
             LOGGER.warn("Context {} is not setup for the connector, this can happen in unit tests.", context);
@@ -134,7 +138,8 @@ public class VitessConnector extends RelationalBaseSourceConnector {
             int tasks = Math.min(maxTasks, currentShards == null ? Integer.MAX_VALUE : currentShards.size());
             LOGGER.info("There are {} vitess shards for maxTasks: {}, we will use {} tasks",
                     currentShards == null ? null : currentShards.size(), maxTasks, tasks);
-            // Check the task offsets persisted from previous gen, we expect the offsets are saved
+            // Check the task offsets persisted from previous gen, we expect the offsets are
+            // saved
             Map<String, String> prevGtidsPerShard = gen > 0 ? getGtidPerShardFromStorage(prevNumTasks, gen - 1, true) : null;
             LOGGER.info("Previous gtids Per shard: {}", prevGtidsPerShard);
             Set<String> previousShards = prevGtidsPerShard != null ? prevGtidsPerShard.keySet() : null;
@@ -151,13 +156,15 @@ public class VitessConnector extends RelationalBaseSourceConnector {
                 LOGGER.warn("Some shards for the previous generation {} are not persisted.  Expected shards: {}",
                         prevGtidsPerShard.keySet(), currentShards);
                 if (prevGtidsPerShard.keySet().containsAll(currentShards)) {
-                    throw new IllegalArgumentException(String.format("Previous shards: %s is the superset of current shards: %s.  "
-                            + "We will lose gtid positions for some shards if we continue",
+                    throw new IllegalArgumentException(String.format(
+                            "Previous shards: %s is the superset of current shards: %s.  "
+                                    + "We will lose gtid positions for some shards if we continue",
                             prevGtidsPerShard.keySet(), currentShards));
                 }
             }
             final String keyspace = connectorConfig.getKeyspace();
-            // Check the task offsets for the current gen, the offset might not be persisted if this gen just turned on
+            // Check the task offsets for the current gen, the offset might not be persisted
+            // if this gen just turned on
             Map<String, String> gtidsPerShard = getGtidPerShardFromStorage(tasks, gen, false);
             if (gtidsPerShard != null && !hasSameShards(gtidsPerShard.keySet(), currentShards)) {
                 LOGGER.warn("Some shards for the current generation {} are not persisted.  Expected shards: {}",
@@ -165,39 +172,51 @@ public class VitessConnector extends RelationalBaseSourceConnector {
                 if (!currentShards.containsAll(gtidsPerShard.keySet())) {
                     LOGGER.warn("Shards from persisted offset: {} not contained within current db shards: {}",
                             gtidsPerShard.keySet(), currentShards);
-                    // gtidsPerShard has shards not present in the current db shards, we have to rely on the shards
+                    // gtidsPerShard has shards not present in the current db shards, we have to
+                    // rely on the shards
                     // from gtidsPerShard and we have to require all task offsets are persisted.
                     gtidsPerShard = getGtidPerShardFromStorage(tasks, gen, true);
                 }
             }
-            // Use the shards from task offsets persisted in the offset storage if it's not empty.
-            // The shards from offset storage might be different than the current db shards, this can happen when
+            // Use the shards from task offsets persisted in the offset storage if it's not
+            // empty.
+            // The shards from offset storage might be different than the current db shards,
+            // this can happen when
             // debezium was offline and there was a shard split happened during that time.
-            // In this case we want to use the old shards from the saved offset storage. Those old shards will
-            // eventually be replaced with new shards as binlog stream processing handles the shard split event
-            // and new shards will be persisted in offset storage after the shard split event.
+            // In this case we want to use the old shards from the saved offset storage.
+            // Those old shards will
+            // eventually be replaced with new shards as binlog stream processing handles
+            // the shard split event
+            // and new shards will be persisted in offset storage after the shard split
+            // event.
             List<String> shards = null;
             if (gtidsPerShard != null && gtidsPerShard.size() == 0) {
                 // if there is no offset persisted for current gen, look for previous gen
-                if (prevGtidsPerShard != null && prevGtidsPerShard.size() != 0 && !currentShards.containsAll(prevGtidsPerShard.keySet())) {
+                if (prevGtidsPerShard != null && prevGtidsPerShard.size() != 0
+                        && !currentShards.containsAll(prevGtidsPerShard.keySet())) {
                     LOGGER.info("Using shards from persisted offset from prev gen: {}", prevGtidsPerShard.keySet());
                     shards = new ArrayList<>(prevGtidsPerShard.keySet());
                 }
                 else {
-                    LOGGER.warn("No persisted offset for current or previous gen, using current shards from db: {}", currentShards);
+                    LOGGER.warn("No persisted offset for current or previous gen, using current shards from db: {}",
+                            currentShards);
                     shards = currentShards;
                 }
             }
             else if (gtidsPerShard != null && !currentShards.containsAll(gtidsPerShard.keySet())) {
-                LOGGER.info("Persisted offset has different shards, Using shards from persisted offset: {}", gtidsPerShard.keySet());
+                LOGGER.info("Persisted offset has different shards, Using shards from persisted offset: {}",
+                        gtidsPerShard.keySet());
                 shards = new ArrayList<>(gtidsPerShard.keySet());
             }
             else {
-                // In this case, we prefer the current db shards since gtidsPerShard might only be partially persisted
-                LOGGER.warn("Current db shards is the superset of persisted offset, using current shards from db: {}", currentShards);
+                // In this case, we prefer the current db shards since gtidsPerShard might only
+                // be partially persisted
+                LOGGER.warn("Current db shards is the superset of persisted offset, using current shards from db: {}",
+                        currentShards);
                 shards = currentShards;
             }
-            // Read GTIDs from config for initial run, only fallback to using this if no stored previous GTIDs, no current GTIDs
+            // Read GTIDs from config for initial run, only fallback to using this if no
+            // stored previous GTIDs, no current GTIDs
             Map<String, String> configGtidsPerShard = getConfigGtidsPerShard(shards);
             shards.sort(Comparator.naturalOrder());
             Map<Integer, List<String>> shardsPerTask = new HashMap<>();
@@ -213,7 +232,8 @@ public class VitessConnector extends RelationalBaseSourceConnector {
                 List<String> taskShards = shardsPerTask.get(tid);
                 Map<String, String> taskProps = new HashMap<>(properties);
                 taskProps.put(VitessConnectorConfig.VITESS_TASK_KEY_CONFIG, getTaskKeyName(tid, tasks, gen));
-                taskProps.put(VitessConnectorConfig.VITESS_TASK_SHARDS_CONFIG, String.join(VitessConnectorConfig.CSV_DELIMITER, taskShards));
+                taskProps.put(VitessConnectorConfig.VITESS_TASK_SHARDS_CONFIG,
+                        String.join(VitessConnectorConfig.CSV_DELIMITER, taskShards));
                 List<Vgtid.ShardGtid> shardGtids = new ArrayList<>();
                 for (String shard : taskShards) {
                     String gtidStr = gtidsPerShard != null ? gtidsPerShard.get(shard) : null;
@@ -291,10 +311,12 @@ public class VitessConnector extends RelationalBaseSourceConnector {
         try (VitessReplicationConnection connection = new VitessReplicationConnection(connectionConfig, null)) {
             try {
                 connection.execute("SHOW DATABASES");
-                LOGGER.info("Successfully tested connection for {} with user '{}'", connection.connectionString(), connection.username());
+                LOGGER.info("Successfully tested connection for {} with user '{}'", connection.connectionString(),
+                        connection.username());
             }
             catch (StatusRuntimeException e) {
-                LOGGER.info("Failed testing connection for {} with user '{}'", connection.connectionString(), connection.username());
+                LOGGER.info("Failed testing connection for {} with user '{}'", connection.connectionString(),
+                        connection.username());
                 hostnameValue.addErrorMessage("Unable to connect: " + e.getMessage());
             }
         }
@@ -321,7 +343,8 @@ public class VitessConnector extends RelationalBaseSourceConnector {
     }
 
     public static List<String> getIncludedTables(String keyspace, String tableIncludeList, List<String> allTables) {
-        // table.include.list are list of patterns, filter all the tables in the keyspace through those patterns
+        // table.include.list are list of patterns, filter all the tables in the
+        // keyspace through those patterns
         // to get the list of table names.
         final List<Pattern> patterns = Strings.listOfRegex(tableIncludeList, Pattern.CASE_INSENSITIVE);
         List<String> includedTables = new ArrayList<>();
@@ -336,11 +359,33 @@ public class VitessConnector extends RelationalBaseSourceConnector {
         return includedTables;
     }
 
+    public static List<String> getColumnsForTable(String keyspace, Tables.ColumnNameFilter columnFilter,
+                                                  List<String> allColumns, String tableName) {
+        List<String> includedColumns = new ArrayList<>();
+        for (String column : allColumns) {
+            if (columnFilter.matches(keyspace, keyspace, tableName, column)) {
+                includedColumns.add(column);
+            }
+        }
+        return includedColumns;
+    }
+
     public static List<String> getKeyspaceTables(VitessConnectorConfig connectionConfig) {
-        String query = String.format("SHOW TABLES FROM %s", connectionConfig.getKeyspace());
+        String query = String.format("SHOW TABLES FROM `%s`", connectionConfig.getKeyspace());
         List<String> tables = getRowsFromQuery(connectionConfig, query);
         LOGGER.info("All tables from keyspace {} are: {}", connectionConfig.getKeyspace(), tables);
         return tables;
+    }
+
+    public static List<String> getTableColumns(VitessConnectorConfig connectionConfig, String tableName) {
+        String query = String.format(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                connectionConfig.getKeyspace(),
+                tableName);
+        List<String> columns = getRowsFromQuery(connectionConfig, query);
+        LOGGER.info("All columns from table {} from keyspace {} are: {}", tableName, connectionConfig.getKeyspace(),
+                columns);
+        return columns;
     }
 
     public static List<String> getVitessShards(VitessConnectorConfig connectionConfig) {
@@ -353,6 +398,17 @@ public class VitessConnector extends RelationalBaseSourceConnector {
         }).collect(Collectors.toList());
         LOGGER.info("Shards: {}", shards);
         return shards;
+    }
+
+    public static Instant getCurrentTimestamp(VitessConnectorConfig connectionConfig) {
+        List<String> rows = getRowsFromQuery(connectionConfig, "SELECT CURRENT_TIMESTAMP");
+        List<Timestamp> timestamps = rows.stream().map(fieldValue -> {
+            return Timestamp.valueOf(fieldValue);
+        }).collect(Collectors.toList());
+        if (timestamps.isEmpty()) {
+            return null;
+        }
+        return timestamps.get(0).toInstant();
     }
 
     @Override

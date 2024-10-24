@@ -9,12 +9,17 @@ import java.time.Instant;
 import java.util.List;
 
 import io.debezium.connector.vitess.VitessType;
+import io.debezium.schema.SchemaChangeEvent;
 
 /**
  * Logic representation of a replication message. It can be a transactional message (begin, commit),
  * or a data message (row-insert, row-delete, row-update).
  */
 public interface ReplicationMessage {
+
+    String getDDL();
+
+    SchemaChangeEvent.SchemaChangeEventType getSchemaChangeType();
 
     /** Data modification operation */
     enum Operation {
@@ -24,6 +29,7 @@ public interface ReplicationMessage {
         BEGIN,
         COMMIT,
         DDL,
+        TRUNCATE,
         OTHER
     }
 

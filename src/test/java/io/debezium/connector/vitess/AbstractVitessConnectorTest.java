@@ -219,15 +219,20 @@ public abstract class AbstractVitessConnectorTest extends AbstractConnectorTest 
 
     protected List<SchemaAndValueField> schemasAndValuesForTimeType() {
         final List<SchemaAndValueField> fields = new ArrayList<>();
+        Schema timeSchema = SchemaBuilder.int32().name("io.debezium.time.Time").version(1).build();
+        Schema dateSchema = SchemaBuilder.int32().name("io.debezium.time.Date").version(1).build();
+        Schema datetimeSchema = SchemaBuilder.int64().name("io.debezium.time.Timestamp").version(1).build();
+        Schema timestampSchema = SchemaBuilder.string().name("io.debezium.time.ZonedTimestamp").version(1).build();
+        Schema yearSchema = SchemaBuilder.int32().name("io.debezium.time.Year").version(1).build();
         fields.addAll(
                 Arrays.asList(
-                        new SchemaAndValueField("time_col", SchemaBuilder.STRING_SCHEMA, "01:02:03"),
-                        new SchemaAndValueField("date_col", SchemaBuilder.STRING_SCHEMA, "2020-02-11"),
+                        new SchemaAndValueField("time_col", timeSchema, 3723000),
+                        new SchemaAndValueField("date_col", dateSchema, 18303),
                         new SchemaAndValueField(
-                                "datetime_col", SchemaBuilder.STRING_SCHEMA, "2020-02-12 01:02:03"),
+                                "datetime_col", datetimeSchema, 1581469323000L),
                         new SchemaAndValueField(
-                                "timestamp_col", SchemaBuilder.STRING_SCHEMA, "2020-02-13 01:02:03"),
-                        new SchemaAndValueField("year_col", SchemaBuilder.STRING_SCHEMA, "2020")));
+                                "timestamp_col", timestampSchema, "2020-02-13 01:02:03"),
+                        new SchemaAndValueField("year_col", yearSchema, 2020)));
         return fields;
     }
 

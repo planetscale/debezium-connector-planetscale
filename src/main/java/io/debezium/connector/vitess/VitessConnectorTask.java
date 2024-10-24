@@ -61,7 +61,10 @@ public class VitessConnectorTask extends BaseSourceTask<VitessPartition, VitessO
         Offsets<VitessPartition, VitessOffsetContext> previousOffsets = getPreviousOffsets(new VitessPartition.Provider(connectorConfig),
                 new VitessOffsetContext.Loader(connectorConfig));
         final VitessOffsetContext previousOffset = previousOffsets.getTheOnlyOffset();
+        final VitessPartition previousPartition = previousOffsets.getTheOnlyPartition();
         final Clock clock = Clock.system();
+
+        validateAndLoadSchemaHistory(connectorConfig, previousPartition, previousOffset, schema);
 
         // Mapped Diagnostic Context (MDC) logging
         LoggingContext.PreviousContext previousContext = taskContext.configureLoggingContext(CONTEXT_NAME);
@@ -122,6 +125,23 @@ public class VitessConnectorTask extends BaseSourceTask<VitessPartition, VitessO
         finally {
             previousContext.restore();
         }
+    }
+
+    private boolean validateAndLoadSchemaHistory(VitessConnectorConfig config, VitessPartition partition, VitessOffsetContext offset, VitessDatabaseSchema schema) {
+        if (offset == null) {
+            LOGGER.info("Connector started for the first time, database schema history recovery will not be executed");
+            schema.initializeStorage();
+            return false;
+        }
+        if (!schema.historyExists()) {
+            LOGGER.warn("Database schema history was not found but was expected");
+            schema.initializeStorage();
+            return true;
+        }
+        LOGGER.debug("Found offset and partition, trying to recover schema");
+        schema.recover(partition, offset);
+        LOGGER.info("Recovered Database schema successfully");
+        return false;
     }
 
     @Override

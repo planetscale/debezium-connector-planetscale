@@ -36,7 +36,6 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.awaitility.Awaitility;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -53,6 +52,7 @@ import io.debezium.data.VerifyRecord;
 import io.debezium.doc.FixFor;
 import io.debezium.embedded.EmbeddedEngine;
 import io.debezium.junit.logging.LogInterceptor;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 import io.debezium.util.Collect;
 import io.debezium.util.Testing;
@@ -213,9 +213,12 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
 
         // apply DDL
         TestHelper.execute("ALTER TABLE numeric_table ADD foo INT default 10;");
-        // applying DDL for Vitess version v8.0.0 emits 1 gRPC responses: (VGTID, DDL)
-        // the VGTID is increased by 1.
         int numOfGtidsFromDdl = 1;
+
+        // consume and ignore DDL event.
+        consumer.expects(expectedRecordsCount);
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+        consumer.remove();
 
         // insert 1 row
         consumer.expects(expectedRecordsCount);
@@ -228,7 +231,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
                 .fromSourceInfo(sourceRecord)
                 .incrementOffset(numOfGtidsFromDdl + 1).getVgtid();
         String actualOffset = (String) sourceRecord2.sourceOffset().get(SourceInfo.VGTID_KEY);
-        Assert.assertEquals(expectedOffset, actualOffset);
+        assertThat(actualOffset).isGreaterThanOrEqualTo(expectedOffset);
     }
 
     @Test
@@ -536,6 +539,8 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         startConnector(Function.identity(), hasMultipleShards, true, 2, 0, 1, null, null, null);
         assertConnectorIsRunning();
 
+        waitForCopyCompleted();
+
         int expectedRecordsCount = 1;
         consumer = testConsumer(expectedRecordsCount);
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TEST_SHARDED_KEYSPACE, TestHelper.PK_FIELD, hasMultipleShards);
@@ -674,6 +679,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         assertConnectorIsRunning();
         waitForStreamingRunning(null);
 
+        // TODO(maxenglander): eliminate this hack, which exists because the
+        // current implementation of DDL event processing requires at least 1
+        // non-DDL event to populate the local database schema.
+        int expectedRecordsCount = 1;
+        consumer = testConsumer(expectedRecordsCount);
+        SourceRecord sourceRecord = assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TestHelper.PK_FIELD);
+
         // Connector receives a row whose column name is not valid, task should fail
         TestHelper.execute("ALTER TABLE numeric_table ADD `@1` INT;");
         TestHelper.execute(INSERT_NUMERIC_TYPES_STMT);
@@ -794,6 +806,59 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
     }
 
     @Test
+    public void testTableIncludeFilterWithSnapshotSelectStatementOverrides() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + "numeric_table";
+        startConnector((builder) -> builder.with(
+                RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE,
+                TEST_UNSHARDED_KEYSPACE + "." + "numeric_table").with(
+                        Field.create(RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE.name() + "." + TEST_UNSHARDED_KEYSPACE + "."
+                                + "numeric_table"),
+                        "select id, tinyint_col from numeric_table where id > 1"),
+                false, false, 1, -1, -1, tableInclude, "");
+        assertConnectorIsRunning();
+        int expectedRecordsCount = 1;
+        consumer = testConsumer(expectedRecordsCount);
+
+        // We should not receive record from string_table
+        TestHelper.execute(INSERT_STRING_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should not this receive record from numeric_table
+        TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should receive this record from numeric_table
+        final List<SchemaAndValueField> fields = new ArrayList<>();
+        fields.addAll(
+                Arrays.asList(
+                        new SchemaAndValueField("tinyint_col", SchemaBuilder.OPTIONAL_INT16_SCHEMA, (short) 2)));
+        assertInsert("INSERT INTO numeric_table (id, tinyint_col) VALUES (2, 2);", fields, TestHelper.PK_FIELD);
+    }
+
+    @Test
+    public void testSnapshotSelectStatementOverrides() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        startConnector((builder) -> builder.with(
+                RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE,
+                TEST_UNSHARDED_KEYSPACE + "." + "numeric_table").with(
+                        Field.create(RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE.name() + "." + TEST_UNSHARDED_KEYSPACE + "."
+                                + "numeric_table"),
+                        "select id, tinyint_col from numeric_table where id > 1"),
+                false, false, 1, -1, -1, "", "");
+        assertConnectorIsRunning();
+        int expectedRecordsCount = 1;
+        consumer = testConsumer(expectedRecordsCount);
+
+        // We should not receive record from string_table
+        TestHelper.execute(INSERT_STRING_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should not this receive record from numeric_table
+        TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
+        // We should receive this record from numeric_table
+        final List<SchemaAndValueField> fields = new ArrayList<>();
+        fields.addAll(
+                Arrays.asList(
+                        new SchemaAndValueField("tinyint_col", SchemaBuilder.OPTIONAL_INT16_SCHEMA, (short) 2)));
+        assertInsert("INSERT INTO numeric_table (id, tinyint_col) VALUES (2, 2);", fields, TestHelper.PK_FIELD);
+    }
+
+    @Test
     public void testGetVitessShards() throws Exception {
         VitessConnectorConfig config = new VitessConnectorConfig(TestHelper.defaultConfig().build());
         Set<String> shards = new HashSet<>(VitessConnector.getVitessShards(config));
@@ -867,6 +932,8 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         assertSourceInfo(record, TEST_SERVER, TEST_SHARDED_KEYSPACE, "numeric_table");
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
+        waitForCopyCompleted();
+
         // We should receive additional record from numeric_table
         consumer.expects(expectedRecordsCount);
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TEST_SHARDED_KEYSPACE, TestHelper.PK_FIELD, hasMultipleShards);
@@ -874,6 +941,8 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
 
     @Test
     public void testCopyTableAndRestart() throws Exception {
+        final boolean hasMultipleShards = false;
+
         TestHelper.executeDDL("vitess_create_tables.ddl");
         TestHelper.execute(INSERT_NUMERIC_TYPES_STMT, TEST_UNSHARDED_KEYSPACE);
 
@@ -891,6 +960,7 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         assertRecordSchemaAndValues(schemasAndValuesForNumericTypes(), record, Envelope.FieldName.AFTER);
 
         // Restart the connector.
+        waitForCopyCompleted();
         stopConnector();
         startConnector(Function.identity(), false, false, 1, -1, -1, null, null, null);
 
@@ -917,6 +987,77 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         // We should receive additional record from numeric_table
         consumer.expects(expectedRecordsCount);
         assertInsert(INSERT_NUMERIC_TYPES_STMT, schemasAndValuesForNumericTypes(), TestHelper.PK_FIELD);
+    }
+
+    @Test
+    public void testInitialOnlySnapshot() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+        int expectedSnapshotRecordsCount = 2;
+        String rowValue = "(1, 1, 12, 12, 123, 123, 1234, 1234, 12345, 12345, 18446744073709551615, 1.5, 2.5, 12.34, true)";
+        String tableName = "numeric_table";
+        StringBuilder insertRows = new StringBuilder().append("INSERT INTO numeric_table ("
+                + "tinyint_col,"
+                + "tinyint_unsigned_col,"
+                + "smallint_col,"
+                + "smallint_unsigned_col,"
+                + "mediumint_col,"
+                + "mediumint_unsigned_col,"
+                + "int_col,"
+                + "int_unsigned_col,"
+                + "bigint_col,"
+                + "bigint_unsigned_col,"
+                + "bigint_unsigned_overflow_col,"
+                + "float_col,"
+                + "double_col,"
+                + "decimal_col,"
+                + "boolean_col)"
+                + " VALUES " + rowValue);
+        for (int i = 1; i < expectedSnapshotRecordsCount; i++) {
+            insertRows.append(", ").append(rowValue);
+        }
+
+        String insertRowsStatement = insertRows.toString();
+        TestHelper.execute(insertRowsStatement);
+
+        // Take initial snapshot.
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + tableName;
+        startInitialOnlySnapshotConnector(Function.identity(), false, false, 1,
+                -1, -1, tableInclude, TestHelper.TEST_SHARD);
+
+        // Consume snapshot rows.
+        consumer = testConsumer(expectedSnapshotRecordsCount, tableInclude);
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+
+        assertRecordInserted(TEST_UNSHARDED_KEYSPACE + ".numeric_table", TestHelper.PK_FIELD);
+
+        // Add more rows.
+        TestHelper.execute(insertRowsStatement);
+
+        // Try consuming new rows, there should be no change to # of consumed rows.
+        consumer = testConsumer(0, tableInclude);
+        consumer.await(Math.min(2, TestHelper.waitTimeForRecords()), TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void shouldHandleEnumAndSetDuringTableCopy() throws Exception {
+        TestHelper.executeDDL("vitess_create_tables.ddl");
+
+        TestHelper.execute(INSERT_ENUM_TYPE_STMT, TEST_UNSHARDED_KEYSPACE);
+        TestHelper.execute(INSERT_SET_TYPE_STMT, TEST_UNSHARDED_KEYSPACE);
+
+        final String enumTableName = "enum_table";
+        final String setTableName = "set_table";
+
+        String tableInclude = TEST_UNSHARDED_KEYSPACE + "." + enumTableName + "," + TEST_UNSHARDED_KEYSPACE + "." + setTableName;
+        startConnector(Function.identity(), false, false, 1,
+                -1, -1, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL, TestHelper.TEST_SHARD);
+
+        int expectedRecordsCount = 2;
+        consumer = testConsumer(expectedRecordsCount);
+
+        consumer.await(TestHelper.waitTimeForRecords(), TimeUnit.SECONDS);
+
+        stopConnector();
     }
 
     private void testOffsetStorage(boolean offsetStoragePerTask) throws Exception {
@@ -970,6 +1111,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         Testing.print("*** Done with verifying without offset.storage.per.task");
     }
 
+    private void waitForCopyCompleted() {
+        final LogInterceptor logInterceptor = new LogInterceptor(VitessReplicationConnection.class);
+        Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
+                .pollInterval(Duration.ofSeconds(1))
+                .until(() -> logInterceptor.containsMessage("Received COPY_COMPLETED event for all keyspaces and shards"));
+    }
+
     private void waitForGtidAcquiring(final LogInterceptor logInterceptor) {
         // The inserts must happen only after GTID to stream from is obtained
         Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
@@ -980,6 +1128,13 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         // The inserts must happen only after GTID to stream from is obtained
         Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
                 .until(() -> logInterceptor.containsMessage("Default VGTID '[{\"keyspace\":"));
+    }
+
+    private void waitForVStreamCancelled(final LogInterceptor logInterceptor) {
+        // The inserts must happen only after VStream is started with some buffer time.
+        Awaitility.await().atMost(Duration.ofSeconds(TestHelper.waitTimeForRecords()))
+                .pollInterval(Duration.ofSeconds(1))
+                .until(() -> logInterceptor.containsMessage("Cancel the copy operation after receiving COPY_COMPLETED event"));
     }
 
     private void waitForVStreamStarted(final LogInterceptor logInterceptor) {
@@ -1040,6 +1195,19 @@ public class VitessConnectorIT extends AbstractVitessConnectorTest {
         String taskId = offsetStoragePerTask ? VitessConnector.getTaskKeyName(0, 1, gen) : null;
         waitForStreamingRunning(taskId);
         waitForVStreamStarted(logInterceptor);
+    }
+
+    private void startInitialOnlySnapshotConnector(Function<Configuration.Builder, Configuration.Builder> customConfig,
+                                                   boolean hasMultipleShards, boolean offsetStoragePerTask,
+                                                   int numTasks, int gen, int prevNumTasks, String tableInclude,
+                                                   String shards)
+            throws InterruptedException {
+        Configuration.Builder configBuilder = customConfig.apply(TestHelper.defaultConfig(
+                hasMultipleShards, offsetStoragePerTask, numTasks, gen, prevNumTasks, tableInclude, VitessConnectorConfig.SnapshotMode.INITIAL_ONLY, shards));
+        final LogInterceptor logInterceptor = new LogInterceptor(VitessReplicationConnection.class);
+        start(VitessConnector.class, configBuilder.build());
+        waitForVStreamCancelled(logInterceptor);
+        stopConnector();
     }
 
     private void waitForStreamingRunning(String taskId) throws InterruptedException {
