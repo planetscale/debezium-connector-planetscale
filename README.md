@@ -1,6 +1,10 @@
 # Debezium × Planetscale
 
-> Planetscale Adapter for Debezium v2
+> Planetscale Connector / Debezium `3.1.2.Final`
+
+[![CI](https://github.com/sgammon/debezium-connector-planetscale-v2/actions/workflows/on.push.yml/badge.svg)](https://github.com/sgammon/debezium-connector-planetscale-v2/actions/workflows/on.push.yml)
+![Java 21](https://img.shields.io/badge/Java-21-blue?style=flat&logoColor=white)
+![Debezium 3.1.2.Final](https://img.shields.io/badge/Debezium-3.1.2.Final-blue?style=flat&logoColor=white)
 
 Coming soon. See [architecture docs](./docs/README.md).
 
