@@ -55,6 +55,17 @@ signing {
   useGpgCmd()
 }
 
+spdxSbom {
+  targets {
+    create("release") {
+      configurations = listOf(
+        "compileClasspath",
+        debeziumConnectors.name,
+      )
+    }
+  }
+}
+
 byteBuddy {
   discovery = Discovery.UNIQUE
   adjustment = Adjustment.FULL
@@ -195,6 +206,6 @@ tasks {
   }
 
   build {
-    dependsOn(shadowJar, publish)
+    dependsOn(shadowJar, publish, spdxSbom)
   }
 }
