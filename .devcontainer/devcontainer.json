@@ -3,6 +3,11 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "hostRequirements": {
+    "cpus": 16,
+    "memory": "32gb",
+    "storage": "128gb"
+  },
   "updateContentCommand": "git pull && ./gradlew --no-daemon build test check --refresh-dependencies",
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},

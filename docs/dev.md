@@ -4,7 +4,7 @@ This is a standard Gradle codebase, using Kotlin. Build-time tooling targets any
 
 ### Using Codespaces
 
-This repository is equipped with a [GitHub Codespace][0] which is pre-configured for connector development.
+This repository is equipped with a [GitHub Codespace][0] which is pre-configured for connector development. [Prebuilds][2] are configured for fast Codespace launching.
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sgammon/debezium-connector-planetscale-v2?devcontainer_path=.devcontainer%2Fdevcontainer.json)
 
@@ -31,9 +31,6 @@ This version propagates everywhere:
 
 Any breakages resulting from an upgrade of Debezium should surface at compile-time, either during BuildBuddy's bytecode rewrites, or during
 unit or integration testing.
-
-[0]: https://github.com/features/codespaces
-[1]: https://docs.gradle.org/current/userguide/composite_builds.html
 
 ### Publishing
 
@@ -74,3 +71,7 @@ dependencies {
 #### Setting up Signing
 
 To facilitate signing when publishing, follow Gradle's [directions for setting up GPG signing](https://docs.gradle.org/current/userguide/signing_plugin.html). Signing is required for publishing to Maven Central.
+
+[0]: https://github.com/features/codespaces
+[1]: https://docs.gradle.org/current/userguide/composite_builds.html
+[2]: https://docs.github.com/en/codespaces/prebuilding-your-codespaces/about-github-codespaces-prebuilds
