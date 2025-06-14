@@ -1,23 +1,42 @@
 name: "Build"
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
       runner:
-        name: "Runner"
-        description: "Runner to use for the job"
+        description: "Runner"
         default: "ubuntu-latest"
+      release:
+        description: "Release"
+        default: false
+        type: boolean
+
   workflow_call:
     inputs:
       runner:
         required: false
         type: string
         default: "ubuntu-latest"
+      release:
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      checksums:
+        description: "Checksums"
+        value: ${{ jobs.build-and-test.outputs.hashes }}
 
 jobs:
   build-and-test:
     name: "Build and Test"
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - name: "Setup: Harden Runner"
         uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
@@ -44,18 +63,44 @@ jobs:
           cache-disabled: 'true'
       - name: "Check: Gradle Wrapper"
         uses: gradle/actions/wrapper-validation@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
+      - name: "Outputs: Short SHA"
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: "Build: Gradle"
         run: ./gradlew --no-daemon --scan build test check
       - name: "Artifact: Maven Repository"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: 'maven-repository-${{ github.sha }}'
+          name: maven-repository-${{ steps.vars.outputs.sha_short || 'latest' }}
           path: ./debezium-planetscale/build/m2
           retention-days: 1
           compression-level: 2
       - name: "Artifact: Shadow JAR"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: 'adapter-jar-${{ github.sha }}'
+          name: adapter-jar-${{ steps.vars.outputs.sha_short || 'latest' }}
           path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
           compression-level: 0
+      - name: "Artifact: SBOM"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom-${{ steps.vars.outputs.sha_short || 'latest' }}
+          path: ./debezium-planetscale/build/spdx/release.spdx.json
+          compression-level: 6
+      - name: "Artifact: Checksums"
+        shell: bash
+        id: hash
+        run: |
+          echo "hashes=$(sha256sum ./debezium-planetscale/build/spdx/release.spdx.json ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    name: "SLSA"
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    needs: [build-and-test]
+    permissions:
+      actions: read # Needed for detection of GitHub Actions environment.
+      id-token: write # Needed for provenance signing and ID
+      contents: write # Needed for release uploads
+    with:
+      base64-subjects-as-file: "${{ needs.build-and-test.outputs.subjects-as-file }}"
+      upload-assets: ${{ inputs.release }}
