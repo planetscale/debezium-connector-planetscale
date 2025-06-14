@@ -5,12 +5,14 @@
   },
   "updateContentCommand": "git pull && ./gradlew --no-daemon build test check --refresh-dependencies",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/java:1": {
       "version": "24.0.1",
       "jdkDistro": "graal"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false
     }
   },
   "customizations": {

@@ -78,13 +78,13 @@ jobs:
       - name: "Artifact: Shadow JAR"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: adapter-jar-${{ steps.vars.outputs.sha_short || 'latest' }}
+          name: connector-${{ steps.vars.outputs.sha_short || 'latest' }}.jar
           path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
           compression-level: 0
       - name: "Artifact: SBOM"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: sbom-${{ steps.vars.outputs.sha_short || 'latest' }}
+          name: sbom-${{ steps.vars.outputs.sha_short || 'latest' }}.spdx.json
           path: ./debezium-planetscale/build/spdx/release.spdx.json
           compression-level: 6
       - name: "Artifact: Checksums"
@@ -102,5 +102,6 @@ jobs:
       id-token: write # Needed for provenance signing and ID
       contents: write # Needed for release uploads
     with:
-      base64-subjects-as-file: "${{ needs.build-and-test.outputs.subjects-as-file }}"
+      base64-subjects: "${{ needs.build-and-test.outputs.hashes }}"
       upload-assets: ${{ inputs.release }}
+      private-repository: true
