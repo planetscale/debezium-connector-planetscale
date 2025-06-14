@@ -132,3 +132,75 @@ with the same dependencies, and no class conflicts.
 
 The final published JAR can be signed, published to Sigstore, and published with full SBOM/SLSA metadata without
 violation, so long as signatures are properly discarded from upstream JARs constituent to the shadowed adapter JAR.
+
+To facilitate easy publishing, a local Maven repository is used within the project build-root, located at:
+```
+debezium-planetscale/build/m2
+```
+
+Listing the contents of this directory after running `./gradlew build test check` shows a valid m2 root:
+```
+➜  tree -L 6 debezium-planetscale/build/m2
+debezium-planetscale/build/m2
+└── com
+    └── planetscale
+        └── labs
+            └── debezium-planetscale
+                ├── 3.1.2.Final
+                │   ├── debezium-planetscale-3.1.2.Final.jar
+                │   ├── debezium-planetscale-3.1.2.Final.jar.md5
+                │   ├── debezium-planetscale-3.1.2.Final.jar.sha1
+                │   ├── debezium-planetscale-3.1.2.Final.jar.sha256
+                │   ├── debezium-planetscale-3.1.2.Final.jar.sha512
+                │   ├── debezium-planetscale-3.1.2.Final.module
+                │   ├── debezium-planetscale-3.1.2.Final.module.md5
+                │   ├── debezium-planetscale-3.1.2.Final.module.sha1
+                │   ├── debezium-planetscale-3.1.2.Final.module.sha256
+                │   ├── debezium-planetscale-3.1.2.Final.module.sha512
+                │   ├── debezium-planetscale-3.1.2.Final.pom
+                │   ├── debezium-planetscale-3.1.2.Final.pom.md5
+                │   ├── debezium-planetscale-3.1.2.Final.pom.sha1
+                │   ├── debezium-planetscale-3.1.2.Final.pom.sha256
+                │   └── debezium-planetscale-3.1.2.Final.pom.sha512
+                ├── maven-metadata.xml
+                ├── maven-metadata.xml.md5
+                ├── maven-metadata.xml.sha1
+                ├── maven-metadata.xml.sha256
+                └── maven-metadata.xml.sha512
+
+6 directories, 20 files
+```
+
+To publish these resources as a valid Maven repository via any S3-compliant service, navigate to this root, and use
+`rclone` to copy the contents to the remote bucket:
+
+```
+cd debezium-planetscale/build/m2 && rclone --progress copy . [... remote bucket ...] && cd -
+```
+
+Then, use the remote bucket URL as the Maven repository URL in a downstream project. For example, in Gradle, and with a
+remote bucket URL base of `https://maven.planetscale.com`:
+
+**`settings.gradle.kts`**
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        maven {
+            name = "planetscale"
+            url = uri("https://maven.planetscale.com/")
+            content {
+                includeGroup("com.planetscale.labs")
+            }
+        }
+    }
+}
+```
+
+Then, the adapter dependency can be added with:
+```kotlin
+dependencies {
+  // Version matches the upstream version of the Vitess adapter.
+  implementation("com.planetscale.labs:debezium-planetscale:3.1.2.Final")
+}
+```
