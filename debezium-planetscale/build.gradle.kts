@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 /*
  * Copyright (c) 2025 James S. Clark
  *
@@ -11,12 +13,19 @@ plugins {
   alias(libs.plugins.spdx)
   alias(libs.plugins.planetscale.debezium)
   alias(libs.plugins.planetscale.debezium.build)
+  signing
   `java-library`
+  `maven-publish`
 }
 
 group = "com.planetscale.labs"
+val packagePrefix = group as String
+val vitessPackage = "io.debezium.connector.vitess"
 
 val planetscaleAdapter: Configuration by configurations.creating {
+  isCanBeConsumed = true
+}
+val vitessAdapter: Configuration by configurations.creating {
   isCanBeConsumed = true
 }
 
@@ -26,6 +35,7 @@ dependencies {
   implementation(kotlin("stdlib"))
 
   planetscaleAdapter(libs.planetscale.debezium.facade)
+  vitessAdapter(debezium.connectors.vitess)
 
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(libs.junit.jupiter.engine)
@@ -38,10 +48,45 @@ java {
   }
 }
 
-shadow {
-
+signing {
+  useGpgCmd()
 }
 
-tasks.test {
-  useJUnitPlatform()
+publishing {
+  publications {
+    create<MavenPublication>("maven") {
+      from(components["shadow"])
+    }
+  }
+  repositories {
+    maven("file://${rootProject.layout.buildDirectory.dir("m2").get().asFile.absolutePath}")
+  }
+}
+
+tasks {
+  shadowJar {
+    archiveClassifier = ""
+    archiveBaseName = "planetscale-debezium-adapter"
+    configurations = listOf()
+    relocate(vitessPackage, "${packagePrefix}.${vitessPackage}")
+    from(jar)
+
+    manifest {
+      attributes(
+        "Implementation-Title" to "Planetscale Debezium Adapter",
+        "Implementation-Version" to project.version,
+      )
+    }
+  }
+
+  test {
+    useJUnitPlatform()
+  }
+
+  build {
+    dependsOn(
+      shadowJar,
+      publish,
+    )
+  }
 }

@@ -13,3 +13,4 @@ debezium = "3.1.2.Final"
 core = { module = "io.debezium:debezium-core", version.ref = "debezium" }
 embedded = { module = "io.debezium:debezium-embedded", version.ref = "debezium" }
 connectors-mysql = { module = "io.debezium:debezium-connector-mysql", version.ref = "debezium" }
+connectors-vitess = { module = "io.debezium:debezium-connector-vitess", version.ref = "debezium" }

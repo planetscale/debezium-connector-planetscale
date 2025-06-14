@@ -10,9 +10,16 @@ plugins {
 
 group = "com.planetscale.labs"
 
+val vitessAdapter: Configuration by configurations.creating {
+  isCanBeResolved = true
+  isCanBeConsumed = true
+}
+
 dependencies {
   api(libs.bundles.vitess.client)
   api(libs.bundles.bytebuddy)
+
   api(debezium.core)
   api(debezium.embedded)
+  vitessAdapter(debezium.connectors.vitess)
 }

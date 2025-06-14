@@ -34,8 +34,13 @@ jobs:
         with:
           java-version: '21'
           distribution: 'zulu'
-          cache: 'gradle'
       - name: "Setup: Elide"
         uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
+      - name: "Setup: Gradle"
+        uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
+      - name: "Check: Gradle Wrapper"
+        uses: gradle/actions/wrapper-validation@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
+      - name: "Report: Dependency Graph"
+        uses: gradle/actions/dependency-submission@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
       - name: "Build: Gradle"
         run: ./gradlew --no-daemon build test check
