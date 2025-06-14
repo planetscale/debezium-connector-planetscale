@@ -12,7 +12,12 @@
                   <project path="$PROJECT_DIR$/build-logic" />
                 </projects>
               </build>
-              <build path="$PROJECT_DIR$/facade" name="facade">
+              <build path="$PROJECT_DIR$/debezium-planetscale" name="debezium-planetscale">
+                <projects>
+                  <project path="$PROJECT_DIR$/debezium-planetscale" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/facade" name="debezium-planetscale">
                 <projects>
                   <project path="$PROJECT_DIR$/facade" />
                 </projects>

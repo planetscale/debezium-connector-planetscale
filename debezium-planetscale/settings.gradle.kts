@@ -7,9 +7,7 @@
 @file:Suppress("UnstableApiUsage")
 
 pluginManagement {
-  includeBuild("build-logic")
-  includeBuild("transforms")
-  includeBuild("transformer")
+  includeBuild("../build-logic")
 
   repositories {
     mavenCentral()
@@ -25,35 +23,23 @@ plugins {
   id("org.gradle.toolchains.foojay-resolver-convention") version ("0.10.0")
 }
 
-gradleEnterprise {
-  buildScan {
-    termsOfServiceUrl = "https://gradle.com/terms-of-service"
-    termsOfServiceAgree = "yes"
-  }
-}
-
 dependencyResolutionManagement {
   repositories {
     mavenCentral()
     google()
   }
   versionCatalogs {
-    create("libs")
+    create("libs") {
+      from(files("../gradle/libs.versions.toml"))
+    }
     create("debezium") {
-      from(files("gradle/debezium.versions.toml"))
+      from(files("../gradle/debezium.versions.toml"))
     }
   }
 }
 
-rootProject.name = "debezium-connector-planetscale"
-
-includeBuild("debezium-planetscale")
-includeBuild("facade")
+rootProject.name = "debezium-planetscale"
 
 enableFeaturePreview("STABLE_CONFIGURATION_CACHE")
 enableFeaturePreview("GROOVY_COMPILATION_AVOIDANCE")
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
-
-// Use `latest` for the latest version, or any other tag, branch, or commit SHA on this project.
-val elidePluginVersion: String by settings
-apply(from = "https://gradle.elide.dev/$elidePluginVersion/elide.gradle.kts")

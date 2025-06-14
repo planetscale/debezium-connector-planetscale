@@ -15,6 +15,10 @@ val vitessAdapter: Configuration by configurations.creating {
   isCanBeConsumed = true
 }
 
+configurations.compileClasspath.configure {
+  extendsFrom(vitessAdapter)
+}
+
 dependencies {
   api(libs.bundles.vitess.client)
   api(libs.bundles.bytebuddy)

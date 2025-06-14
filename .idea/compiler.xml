@@ -5,9 +5,15 @@
       <module name="debezium-connector-planetscale.buildSrc" target="23" />
       <module name="debezium-connector-planetscale.buildSrc.main" target="23" />
       <module name="debezium-connector-planetscale.buildSrc.test" target="23" />
+      <module name="debezium-connector-planetscale.debezium-planetscale" target="23" />
+      <module name="debezium-connector-planetscale.debezium-planetscale.main" target="23" />
+      <module name="debezium-connector-planetscale.debezium-planetscale.test" target="23" />
       <module name="debezium-connector-planetscale.lib" target="1.8" />
       <module name="debezium-connector-planetscale.lib.main" target="1.8" />
       <module name="debezium-connector-planetscale.lib.test" target="1.8" />
+      <module name="facade" target="23" />
+      <module name="facade.main" target="23" />
+      <module name="facade.test" target="23" />
     </bytecodeTargetLevel>
   </component>
 </project>
