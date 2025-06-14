@@ -6,24 +6,60 @@
  */
 package com.planetscale.conventions
 
+import com.planetscale.PlanetscaleBuild
+import com.planetscale.PlanetscaleBuild.debeziumVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
-import org.gradle.kotlin.dsl.the
+import org.gradle.kotlin.dsl.findByType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 
+// Dependencies which don't share a version with main Debezium.
+private val unalignedDeps = sortedSetOf(
+  "mysql-binlog-connector-java",
+)
+
 @Suppress("unused") // used at build time
 class PlanetscaleConventionsPlugin : Plugin<Project> {
-  // Java toolchain configuration.
-  private val toolchainVersion = JavaLanguageVersion.of(21)
-  private val toolchainVendor = JvmVendorSpec.AZUL
+  companion object {
+    // Debezium version property to set.
+    private const val DEBEZIUM_VERSION_PROPERTY = "debeziumVersion"
+
+    // Java toolchain configuration.
+    @JvmStatic private val toolchainVersion = JavaLanguageVersion.of(21)
+    @JvmStatic private val toolchainVendor = JvmVendorSpec.AZUL
+  }
+
+  // Cached access to the active project.
+  private lateinit var project: Project
+
+  // Version of Debezium to build upon, and our own version.
+  val debeziumVersion: String by lazy {
+    project.findProperty(DEBEZIUM_VERSION_PROPERTY) as? String ?: project.debeziumVersion()
+  }
 
   override fun apply(target: Project) {
+    project = target
+
+    // use consistent project coordinates and versioning
+    project.group = PlanetscaleBuild.PACKAGE_GROUP
+    project.version = debeziumVersion
+
+    // use a consistent version of debezium throughout
+    target.configurations.all {
+      resolutionStrategy.eachDependency {
+        if (requested.group == "io.debezium" && requested.name !in unalignedDeps) {
+          useVersion(debeziumVersion)
+          because("Pinned upstream version of Debezium")
+        }
+      }
+    }
+
     // use a consistent java toolchain
-    target.the<JavaPluginExtension>().apply {
+    target.extensions.findByType<JavaPluginExtension>()?.apply {
       toolchain {
         languageVersion.set(toolchainVersion)
         vendor.set(toolchainVendor)
@@ -31,7 +67,7 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
     }
 
     // use consistent kotlin toolchain configuration
-    target.the<KotlinJvmExtension>().apply {
+    target.extensions.findByType<KotlinJvmExtension>()?.apply {
       jvmToolchain {
         languageVersion.set(toolchainVersion)
         vendor.set(toolchainVendor)

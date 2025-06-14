@@ -9,8 +9,6 @@ plugins {
   alias(libs.plugins.planetscale.debezium.build)
 }
 
-group = "com.planetscale.labs"
-
 val vitessAdapter: Configuration by configurations.creating {
   isCanBeResolved = true
   isCanBeConsumed = true

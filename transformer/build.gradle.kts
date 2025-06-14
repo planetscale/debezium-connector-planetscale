@@ -5,6 +5,7 @@
  * permission from the copyright holder, depicted above. All rights reserved.
  */
 plugins {
+  alias(libs.plugins.planetscale.debezium.build)
   `java-gradle-plugin`
 }
 
@@ -13,7 +14,6 @@ dependencies {
   implementation(libs.planetscale.debezium.transforms)
 }
 
-group = "com.planetscale.labs"
 val pluginId = "com.planetscale.debezium"
 val pluginClass = "com.planetscale.codegen.PlanetscaleCodegenPlugin"
 

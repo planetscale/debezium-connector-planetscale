@@ -6,7 +6,6 @@
 #
 
 [versions]
-# @TODO(sgammon): Unify this with the value in `gradle.properties` via resolution constraints.
 debezium = "3.1.2.Final"
 
 [libraries]

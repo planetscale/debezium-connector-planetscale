@@ -40,6 +40,8 @@ dependencies {
   implementation(gradleApi())
   implementation(libs.plugin.bytebuddy)
   implementation(libs.plugin.kotlin.jvm)
+  implementation(files(libs::class.java.protectionDomain.codeSource.location))
+  implementation(files(debezium::class.java.protectionDomain.codeSource.location))
 }
 
 gradlePlugin {
