@@ -41,8 +41,26 @@ jobs:
       - name: "Setup: Harden Runner"
         uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
         with:
-          egress-policy: audit
           disable-sudo: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.azul.com:443
+            api.github.com:443
+            cdn.azul.com:443
+            dl.google.com:443
+            gha.elide.zip:443
+            github.com:443
+            gradle.elide.dev:443
+            maven.elide.dev:443
+            objects.githubusercontent.com:443
+            plugins-artifacts.gradle.org:443
+            plugins.gradle.org:443
+            raw.githubusercontent.com:443
+            repo.maven.apache.org:443
+            scans-in.gradle.com:443
+            services.gradle.org:443
+            spdx.org:443
+            telemetry.elide.dev:443
       - name: "Setup: Checkout"
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
