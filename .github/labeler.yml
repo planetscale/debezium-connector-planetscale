@@ -1,0 +1,2 @@
+dependencies:
+  - any: ["gradle/*.toml", "package.json", "bun.lock", "**/*.lockfile"]

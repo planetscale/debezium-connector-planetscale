@@ -1,0 +1,24 @@
+base: &base
+  - ".version"
+  - ".github/workflows/*.*"
+
+devcontainer: &devcontainer
+  - *base
+  - ".devcontainer/*.*"
+  - ".devcontainer/**/*.*"
+
+deps: &deps
+  - *base
+  - "gradle/*.toml"
+  - "package.json"
+  - "bun.lock"
+  - "**/*.lockfile"
+
+build: &build
+  - *base
+  - "**/*.kts"
+
+sources: &sources
+  - *base
+  - *build
+  - "**/*.kt"

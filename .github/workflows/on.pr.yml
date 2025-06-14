@@ -13,8 +13,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  triage:
+    name: "Triage"
+    runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
+    permissions:
+      contents: read # Ability to clone the project.
+      pull-requests: read # Needed to read PR details and comments.
+    outputs:
+      changes: ${{ steps.extract_branch.outputs.changes }}
+      branch: ${{ steps.extract_branch.outputs.branch }}
+      base: ${{ steps.filter.outputs.base }}
+      sources: ${{ steps.filter.outputs.sources }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - name: "Setup: Harden Runner"
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
+        with:
+          disable-sudo: true
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+      - name: "Setup: Checkout"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/triage.yml
+            .github/labeler.yml
+      - name: "Triage: Branch Label"
+        id: extract_branch
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      - name: "Triage: PR Labels"
+        uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: "Triage: PR Changes"
+        id: filter
+        uses: step-security/paths-filter@27924be12bc7fa48eac88958847638304d58f386 # v3.0.4
+        with:
+          filters: .github/triage.yml
+
   build:
     name: "Build"
+    needs: [triage]
     uses: ./.github/workflows/job.build.yml
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
@@ -22,9 +66,13 @@ jobs:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
       id-token: write # Needed for release uploads (SLSA).
+
   review:
     name: "Review"
     uses: ./.github/workflows/job.review.yml
+    needs: [triage]
+    # don't run for drafts or dependabot
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

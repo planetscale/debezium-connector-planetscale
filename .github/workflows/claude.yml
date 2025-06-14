@@ -17,12 +17,12 @@ concurrency:
 jobs:
   claude:
     name: "Claude"
+    runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
@@ -30,7 +30,7 @@ jobs:
       id-token: write
     steps:
       - name: "Setup: Harden Runner"
-        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
         with:
           disable-sudo: true
           egress-policy: audit
