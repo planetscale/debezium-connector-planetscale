@@ -4,11 +4,11 @@
 
 Coming soon. See [architecture docs](./docs/architecture.md).
 
-- sgammon/debezium-connector-planetscale-v2#1
-  - sgammon/debezium-connector-planetscale-v2#2
-  - sgammon/debezium-connector-planetscale-v2#3
-  - sgammon/debezium-connector-planetscale-v2#4
-  - sgammon/debezium-connector-planetscale-v2#5
-  - sgammon/debezium-connector-planetscale-v2#6
-  - sgammon/debezium-connector-planetscale-v2#7
-  - sgammon/debezium-connector-planetscale-v2#8
+- [**Acceptance Criteria**](sgammon/debezium-connector-planetscale-v2#1)
+  - [ ] [Bytecode fork of Debezium](sgammon/debezium-connector-planetscale-v2#2)
+  - [ ] [Transformations: Entrypoint](sgammon/debezium-connector-planetscale-v2#3)
+  - [ ] [Build-time bytecode transformations](sgammon/debezium-connector-planetscale-v2#4)
+  - [ ] [Bytecode hook: mTLS](sgammon/debezium-connector-planetscale-v2#5)
+  - [ ] [Codespace for adapter development](sgammon/debezium-connector-planetscale-v2#6)
+  - [ ] [Separate code from transformations](sgammon/debezium-connector-planetscale-v2#7)
+  - [ ] [Architecture docs and prompts](sgammon/debezium-connector-planetscale-v2#8)
