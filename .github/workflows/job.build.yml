@@ -19,5 +19,23 @@ jobs:
     name: "Build and Test"
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     steps:
+      - name: "Setup: Harden Runner"
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
+          disable-sudo: true
       - name: "Setup: Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: "Setup: JVM"
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+          cache: 'gradle'
+      - name: "Setup: Elide"
+        uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
+      - name: "Build: Gradle"
+        run: ./gradlew --no-daemon build test check
