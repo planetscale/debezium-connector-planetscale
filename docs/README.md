@@ -6,14 +6,14 @@
 # permission from the copyright holder, depicted above. All rights reserved.
 #
 -->
-# Debezium Adapter for Planetscale
+# Debezium Connector for Planetscale
 
-This repository implements a Debezium adapter for Planetscale, enabling change data capture (CDC) capabilities for
+This repository implements a Debezium connector for Planetscale, enabling change data capture (CDC) capabilities for
 applications using Planetscale as their database. Planetscale is the Vitess company and cloud database; this repo adapts
-the Debezium Vitess adapter for seamless integration with Planetscale.
+the Debezium Vitess connector for seamless integration with Planetscale.
 
-In order to avoid upstream merge conflicts and achieve a minimal coupling surface, this repo forks the upstream adapter
-**in bytecode**, effectively, and only overrides necessary logic to create a Planetscale adapter. Thus, upstream feature
+In order to avoid upstream merge conflicts and achieve a minimal coupling surface, this repo forks the upstream connector
+**in bytecode**, effectively, and only overrides necessary logic to create a Planetscale connector. Thus, upstream feature
 updates and fixes can be adopted here as fast as possible and with minimal effort.
 
 ## Architecture
@@ -24,18 +24,18 @@ flowchart TD
   C[Planetscale Modifications] --> D
   B --> D(Bytecode Transformation)
   D --> E[Partially Shadowed JAR, Class relocations]
-  E --> F[Adapter JAR with identical dependencies]
+  E --> F[Connector JAR with identical dependencies]
   F --> G(Publish to Maven)
 ```
 
-1) The upstream Debezium Vitess adapter is pulled from Maven.
+1) The upstream Debezium Vitess connector is pulled from Maven.
 2) The upstream classes are unpacked.
 3) Bytecode transformations are applied from the [`transforms`](../transforms), by the [`transformer`](../transformer).
 4) A partially-shadowed JAR is created, with the following attributes:
-   - All transformed classes from the Vitess adapter.
+   - All transformed classes from the Vitess connector.
    - All local classes involved in implementing hooks and override logic.
-   - The upstream Vitess adapter classes are relocated to a subordinate package.
-5) An adapter JAR is created which perfectly mirrors the upstream Vitess adapter's dependencies.
+   - The upstream Vitess connector classes are relocated to a subordinate package.
+5) An connector JAR is created which perfectly mirrors the upstream Vitess connector's dependencies.
 
 ### Bytecode Transformations
 
@@ -86,28 +86,28 @@ After transformations are applied, decompiling the `VitessConnector` class in ID
 
 ### Partially-Shadowed JAR
 
-To facilitate running the adapter, a partially-shadowed JAR is created, which, in substance, replaces the upstream
-Vitess adapter JAR for users. This JAR is assembled in a manner which is careful to avoid runtime class loading
-conflicts, even with the upstream Vitess adapter which is wrapped to create the Planetscale adapter.
+To facilitate running the connector, a partially-shadowed JAR is created, which, in substance, replaces the upstream
+Vitess connector JAR for users. This JAR is assembled in a manner which is careful to avoid runtime class loading
+conflicts, even with the upstream Vitess connector which is wrapped to create the Planetscale connector.
 
 **The shadowed JAR contains:**
 
-- All transformed classes from the Vitess adapter, relocated to a subordinate package.
+- All transformed classes from the Vitess connector, relocated to a subordinate package.
 - All local classes involved in implementing hooks and override logic.
 
 No other dependencies are included in the shadowed JAR, as it is still intended to be used in conjunction with a
-classpath assembled from the same dependencies as the upstream Vitess adapter.
+classpath assembled from the same dependencies as the upstream Vitess connector.
 
 ![](./images/classes-shaded-pt1.png)
 ![](./images/classes-shaded-pt2.png)
 
 > [!NOTE]
-> Services are rewritten to account for relocations, and for the injected Planetscale adapter facade. See below
+> Services are rewritten to account for relocations, and for the injected Planetscale connector facade. See below
 > for details.
 
 ### SPI and Relocations
 
-The following services are supported by the final Planetscale adapter JAR:
+The following services are supported by the final Planetscale connector JAR:
 
 **`META-INF/services/org.apache.kafka.connect.source.SourceConnector`**
 ```
@@ -119,17 +119,17 @@ com.planetscale.debezium.PlanetscaleConnector
 com.planetscale.debezium.converters.PlanetscaleCloudEventsProvider
 ```
 
-In effect, this means that only the Planetscale adapter will show up as a registered Kafka Connect source. For users to
-use the original Vitess adapter, they must explicitly install the upstream Vitess adapter JAR, as normal.
+In effect, this means that only the Planetscale connector will show up as a registered Kafka Connect source. For users to
+use the original Vitess connector, they must explicitly install the upstream Vitess connector JAR, as normal.
 
 ### Publishing
 
-After assembling the partially-shadowed JAR, a POM is assembled which matches the upstream Vitess adapter's requisite
-dependencies. Thus, end-users can use the Planetscale adapter as a drop-in replacement for the upstream Vitess adapter,
+After assembling the partially-shadowed JAR, a POM is assembled which matches the upstream Vitess connector's requisite
+dependencies. Thus, end-users can use the Planetscale connector as a drop-in replacement for the upstream Vitess connector,
 with the same dependencies, and no class conflicts.
 
 The final published JAR can be signed, published to Sigstore, and published with full SBOM/SLSA metadata without
-violation, so long as signatures are properly discarded from upstream JARs constituent to the shadowed adapter JAR.
+violation, so long as signatures are properly discarded from upstream JARs constituent to the shadowed connector JAR.
 
 To facilitate easy publishing, a local Maven repository is used within the project build-root, located at:
 ```
@@ -169,47 +169,4 @@ debezium-planetscale/build/m2
 6 directories, 20 files
 ```
 
-To publish these resources as a valid Maven repository via any S3-compliant service, navigate to this root, and use
-`rclone` to copy the contents to the remote bucket:
-
-```
-cd debezium-planetscale/build/m2 && rclone --progress copy . [... remote bucket ...] && cd -
-```
-
-Then, use the remote bucket URL as the Maven repository URL in a downstream project. For example, in Gradle, and with a
-remote bucket URL base of `https://maven.planetscale.com`:
-
-**`settings.gradle.kts`**
-```kotlin
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-        maven {
-            name = "planetscale"
-            url = uri("https://maven.planetscale.com/")
-            content {
-                includeGroup("com.planetscale.labs")
-            }
-        }
-    }
-}
-```
-
-Then, the adapter dependency can be added with:
-```kotlin
-dependencies {
-  // Version matches the upstream version of the Vitess adapter.
-  implementation("com.planetscale.labs:debezium-planetscale:3.1.2.Final")
-}
-```
-
-## Upgrading Debezium
-
-To upgrade the Debezium version (and, therefore, the connector versions), edit the version declared in the Debezium
-version catalog, at `gradle/debezium.versions.toml`.
-
-This version propagates everywhere:
-
-- The upstream Debezium dependency version
-- Resolution of unaligned dependencies
-- The version of this library, which matches the upstream Debezium version
+See the [developer docs](./dev.md) for publishing instructions.
