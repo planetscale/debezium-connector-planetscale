@@ -1,1 +1,1 @@
-FROM mcr.microsoft.com/vscode/devcontainers/java:21@sha256:dd2fc1caf7b6f6e5ae594d70792777ad13ede078a8356b112a2fd4e51adcd34c
+FROM mcr.microsoft.com/vscode/devcontainers/base:ubuntu-21.04@sha256:c68170fba3bcc2ce8d1d2289d163031bd0c0359a4e18b05b8b1572c5dfbf9a64

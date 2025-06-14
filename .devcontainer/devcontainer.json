@@ -3,13 +3,13 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "runArgs": ["--init", "--privileged"],
-  "postAttachCommand": "code .devcontainer/README.md",
-  "overrideCommand": false,
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/rchaganti/vsc-devcontainer-features/cosign:1": {}
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "24.0.1",
+      "jdkDistro": "graal"
+    }
   },
   "customizations": {
     "codespaces": {
