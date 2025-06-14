@@ -37,7 +37,6 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
         vendor.set(toolchainVendor)
       }
       compilerOptions {
-        freeCompilerArgs.set(listOf("-no-stdlib"))
         jvmTarget.set(JvmTarget.fromTarget(toolchainVersion.asInt().toString()))
       }
     }

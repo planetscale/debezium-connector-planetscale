@@ -18,6 +18,7 @@ plugins {
   alias(libs.plugins.bytebuddy)
   alias(libs.plugins.planetscale.debezium)
   alias(libs.plugins.planetscale.debezium.build)
+  application
   signing
   `java-library`
   `maven-publish`
@@ -32,7 +33,12 @@ val planetscaleAdapter: Configuration by configurations.creating
 val vitessAdapter: Configuration by configurations.creating
 
 fun DependencyHandlerScope.planetscale(dep: Provider<MinimalExternalModuleDependency>) {
+  implementation(dep) { isTransitive = false }
   planetscaleAdapter(dep) { isTransitive = false }
+}
+
+application {
+  mainClass = "com.planetscale.debezium.PlanetscaleDebezium"
 }
 
 kotlin {
@@ -63,6 +69,7 @@ dependencies {
   api(debezium.core)
   api(debezium.embedded)
   api(libs.grpc.auth)
+  runtimeOnly(libs.kafka.connect.api)
   api(libs.vitess.grpc.client) {
     exclude(group = "com.google.code.findbugs", module = "jsr305")
     exclude(group = "org.codehaus.mojo", module = "animal-sniffer-annotations")
@@ -74,7 +81,9 @@ dependencies {
 
   planetscale(libs.planetscale.debezium.facade)
   planetscale(libs.planetscale.debezium.transforms)
+  shadow(kotlin("stdlib"))
   vitessAdapter(debezium.connectors.vitess)
+  compileOnly(debezium.connectors.vitess)
 
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(libs.junit.jupiter.engine)
@@ -101,22 +110,32 @@ publishing {
 }
 
 tasks {
+  named("run", JavaExec::class) {
+    classpath = files(
+      configurations.compileClasspath,
+      configurations.runtimeClasspath,
+      shadowJar.get().outputs.files.single(),
+    )
+  }
+
   shadowJar {
     archiveClassifier = ""
     archiveBaseName = "planetscale-debezium-adapter"
     configurations = listOf(vitessAdapter)
     relocate(vitessPackage, "${packagePrefix}.${vitessPackage}")
-
     from(jar)
-    from(files(planetscaleAdapter))
-
     mergeServiceFiles()
 
     dependencyFilter.include {
       debezium.connectors.vitess.get().let { vitessAdapter ->
         // only force-shadow the vitess adapter.
         it.moduleGroup == vitessAdapter.group && it.moduleName == vitessAdapter.name
-      }
+      } || (
+        it.moduleGroup == "org.jetbrains.kotlin" && (
+          it.moduleName == "kotlin-stdlib" ||
+          it.moduleName == "kotlin-reflect"
+        )
+      )
     }
     exclude(
       // don't include specifications from the original vitess connector.

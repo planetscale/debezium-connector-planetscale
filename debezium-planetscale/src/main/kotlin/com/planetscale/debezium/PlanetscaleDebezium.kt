@@ -11,7 +11,16 @@
 package com.planetscale.debezium
 
 public object PlanetscaleDebezium {
-    public fun setup(): Boolean {
-        return true
+  public fun setup(): Boolean {
+    return true
+  }
+
+  @JvmStatic public fun main(args: Array<String>) {
+    if (setup()) {
+      val adapter = PlanetscaleConnector()
+      println("Planetscale Debezium setup completed successfully.")
+    } else {
+      println("Planetscale Debezium setup failed.")
     }
+  }
 }

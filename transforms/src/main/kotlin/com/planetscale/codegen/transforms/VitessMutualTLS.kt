@@ -10,14 +10,11 @@ import net.bytebuddy.build.Plugin
 import net.bytebuddy.description.type.TypeDescription
 import net.bytebuddy.dynamic.ClassFileLocator
 import net.bytebuddy.dynamic.DynamicType
+import net.bytebuddy.implementation.FixedValue
+import net.bytebuddy.matcher.ElementMatchers
 
-@Suppress("unused")
-class VitessPluginHooks : Plugin {
-  private val plugins: List<Plugin> = listOf(
-    VitessMutualTLS()
-  )
-
-  override fun matches(target: TypeDescription): Boolean {
+internal class VitessMutualTLS : Plugin {
+  override fun matches(target: TypeDescription?): Boolean {
     return false  // don't yet apply
   }
 
@@ -29,9 +26,7 @@ class VitessPluginHooks : Plugin {
     builder: DynamicType.Builder<*>,
     typeDescription: TypeDescription,
     classFileLocator: ClassFileLocator
-  ): DynamicType.Builder<*> = builder.apply {
-    plugins.forEach { plugin ->
-      plugin.apply(this, typeDescription, classFileLocator)
-    }
-  }
+  ): DynamicType.Builder<*> = builder
+    .method(ElementMatchers.named("toString"))
+    .intercept(FixedValue.value("Hello World!"))
 }

@@ -15,6 +15,7 @@ spdx = "0.9.0"
 kotlin = "2.1.20"
 vitess-client = "22.0.0"
 grpc = "1.64.0"
+kafka-connect-api = "3.9.0"
 
 [libraries]
 bytebuddy = { module = "net.bytebuddy:byte-buddy", version.ref = "bytebuddy" }
@@ -29,6 +30,7 @@ vitess-grpc-client = { module = "io.vitess:vitess-grpc-client", version.ref = "v
 grpc-core = { module = "io.grpc:grpc-core", version.ref = "grpc" }
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
 grpc-auth = { module = "io.grpc:grpc-auth", version.ref = "grpc" }
+kafka-connect-api = { module = "org.apache.kafka:connect-api", version.ref = "kafka-connect-api" }
 
 # Internal library references.
 planetscale-debezium = { module = "com.planetscale.labs:debezium-planetscale" }
