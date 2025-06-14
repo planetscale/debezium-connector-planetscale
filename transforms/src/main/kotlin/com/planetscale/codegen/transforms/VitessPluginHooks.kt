@@ -14,15 +14,16 @@ import net.bytebuddy.dynamic.DynamicType
 @Suppress("unused")
 class VitessPluginHooks : Plugin {
   private val plugins: List<Plugin> = listOf(
-    VitessMutualTLS()
+    VitessHello(),
+    VitessMutualTLS(),
   )
 
   override fun matches(target: TypeDescription): Boolean {
-    return false  // don't yet apply
+    return plugins.any { it.matches(target) }
   }
 
   override fun close() {
-    // nothing at this time
+    plugins.forEach { it.close() }
   }
 
   override fun apply(

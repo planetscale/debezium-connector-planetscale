@@ -6,10 +6,11 @@
  */
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
-import com.planetscale.codegen.transforms.VitessPluginHooks
+import com.planetscale.codegen.transforms.VitessHello
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
 import net.bytebuddy.build.gradle.ByteBuddyTask
+import net.bytebuddy.build.gradle.Discovery
 
 plugins {
   alias(libs.plugins.shadow)
@@ -46,9 +47,7 @@ kotlin {
 }
 
 byteBuddy {
-  transformation {
-    plugin = VitessPluginHooks::class.java
-  }
+  discovery = Discovery.UNIQUE
   adjustment = Adjustment.FULL
   adjustmentErrorHandler = ErrorHandler.FAIL
 }
@@ -61,34 +60,14 @@ val debeziumClasses by tasks.registering(Copy::class) {
   include("**/*.class")
 }
 
-val copyDebeziumToBuildRoot by tasks.registering(Copy::class) {
-  from(layout.buildDirectory.dir("debezium/classes"))
-  into(layout.buildDirectory.dir("classes/kotlin/main"))
-  include("**/*.class")
-}
-
 val transformVitess by tasks.registering(ByteBuddyTask::class) {
   group = "build"
   description = "Transform classes for use with Vitess plugin"
-  source = layout.buildDirectory.dir("classes/kotlin/main")
+  source = layout.buildDirectory.dir("debezium/classes")
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(configurations.compileClasspath)
-  dependsOn(copyDebeziumToBuildRoot, tasks.compileKotlin, debeziumClasses)
-
-  transformation {
-    plugin = VitessPluginHooks::class.java
-  }
-}
-
-tasks.compileKotlin {
-  dependsOn(debeziumClasses)
-  finalizedBy(copyDebeziumToBuildRoot, transformVitess)
-}
-
-afterEvaluate {
-  tasks.named("byteBuddy") {
-    dependsOn(copyDebeziumToBuildRoot)
-  }
+  dependsOn(tasks.compileKotlin, debeziumClasses)
+  transformation { plugin = VitessHello::class.java }
 }
 
 dependencies {
@@ -135,6 +114,16 @@ publishing {
 }
 
 tasks {
+  jar {
+    from(transformVitess)
+    dependsOn(transformVitess)
+  }
+
+  compileKotlin {
+    dependsOn(debeziumClasses)
+    finalizedBy(transformVitess)
+  }
+
   named("run", JavaExec::class) {
     dependsOn(shadowJar)
 
@@ -148,7 +137,6 @@ tasks {
   shadowJar {
     archiveClassifier = ""
     archiveBaseName = "planetscale-debezium-adapter"
-    configurations = listOf()
     includeEmptyDirs = false
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
@@ -157,27 +145,20 @@ tasks {
     from(jar)
     mergeServiceFiles()
 
+    // only package our own transitive classes; this includes symbols which are needed for transform-injected hooks.
     dependencyFilter.include {
-      debezium.connectors.vitess.get().let { vitessAdapter ->
-        // only force-shadow the vitess adapter.
-        it.moduleGroup == vitessAdapter.group && it.moduleName == vitessAdapter.name
-      } || (
-        it.moduleGroup == "org.jetbrains.kotlin" && (
-          it.moduleName == "kotlin-stdlib" ||
-          it.moduleName == "kotlin-reflect"
-        )
-      )
+      it.moduleGroup == "com.planetscale.labs"
     }
     exclude(
+      // don't include bytebuddy classes; we only use them at build time.
+      "net/bytebuddy/**",
+      // don't include build-time transform code.
+      "com/planetscale/codegen/**",
       // don't include specifications from the original vitess connector.
       "META-INF/maven/io.debezium/debezium-connector-vitess/",
-      // don't include bytebuddy
-      "net/bytebuddy/**",
-      // don't include build-time transform code
-      "com/planetscale/codegen/**",
-      // don't include kotlin metadata
+      // don't include kotlin metadata.
       "META-INF/*.kotlin_module",
-      // don't include metadata about the vitess adapter
+      // don't include metadata about the vitess adapter.
       "META-INF/maven/**",
     )
     manifest {

@@ -6,27 +6,25 @@
  */
 package com.planetscale.codegen.transforms
 
-import net.bytebuddy.build.Plugin
+import com.planetscale.debezium.hello.DebeziumVitessHello
 import net.bytebuddy.description.type.TypeDescription
 import net.bytebuddy.dynamic.ClassFileLocator
 import net.bytebuddy.dynamic.DynamicType
-import net.bytebuddy.implementation.FixedValue
+import net.bytebuddy.implementation.MethodDelegation
 import net.bytebuddy.matcher.ElementMatchers
 
-internal class VitessMutualTLS : Plugin {
-  override fun matches(target: TypeDescription): Boolean {
-    return target.simpleName == "VitessConnector"
-  }
-
-  override fun close() {
-    // nothing at this time
-  }
+class VitessHello : AbstractTransform() {
+  override fun matches(target: TypeDescription): Boolean = target.simpleName == "VitessConnector"
 
   override fun apply(
     builder: DynamicType.Builder<*>,
     typeDescription: TypeDescription,
     classFileLocator: ClassFileLocator
   ): DynamicType.Builder<*> = builder
-    .method(ElementMatchers.named("toString"))
-    .intercept(FixedValue.value("Hello World!"))
+    // intercept the method `start`
+    .method(ElementMatchers.named("start"))
+    // delegate it to `DebeziumVitessHello.start`
+    .intercept(MethodDelegation.to(DebeziumVitessHello::class.java))
+    // make the class, so it is persisted and checked at build time
+    .also { it.make() }
 }
