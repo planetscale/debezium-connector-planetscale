@@ -201,3 +201,14 @@ dependencies {
   implementation("com.planetscale.labs:debezium-planetscale:3.1.2.Final")
 }
 ```
+
+## Upgrading Debezium
+
+To upgrade the Debezium version (and, therefore, the connector versions), edit the version declared in the Debezium
+version catalog, at `gradle/debezium.versions.toml`.
+
+This version propagates everywhere:
+
+- The upstream Debezium dependency version
+- Resolution of unaligned dependencies
+- The version of this library, which matches the upstream Debezium version
