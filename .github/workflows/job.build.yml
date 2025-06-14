@@ -44,4 +44,4 @@ jobs:
       - name: "Check: Gradle Wrapper"
         uses: gradle/actions/wrapper-validation@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
       - name: "Build: Gradle"
-        run: ./gradlew --no-daemon build test check
+        run: ./gradlew --no-daemon --scan build test check
