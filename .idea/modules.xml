@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/facade/facade.main.iml" filepath="$PROJECT_DIR$/.idea/modules/facade/facade.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/transformer/transformer.main.iml" filepath="$PROJECT_DIR$/.idea/modules/transformer/transformer.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/transforms/transforms.main.iml" filepath="$PROJECT_DIR$/.idea/modules/transforms/transforms.main.iml" />
     </modules>

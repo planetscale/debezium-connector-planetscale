@@ -14,6 +14,9 @@
       <module name="debezium-connector-planetscale.lib" target="1.8" />
       <module name="debezium-connector-planetscale.lib.main" target="1.8" />
       <module name="debezium-connector-planetscale.lib.test" target="1.8" />
+      <module name="facade" target="21" />
+      <module name="facade.main" target="21" />
+      <module name="facade.test" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

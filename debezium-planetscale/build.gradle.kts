@@ -49,19 +49,45 @@ byteBuddy {
   transformation {
     plugin = VitessPluginHooks::class.java
   }
-  adjustment = Adjustment.SELF
-  adjustmentErrorHandler = ErrorHandler.IGNORE
+  adjustment = Adjustment.FULL
+  adjustmentErrorHandler = ErrorHandler.FAIL
+}
+
+val debeziumClasses by tasks.registering(Copy::class) {
+  group = "build"
+  description = "Copy Debezium classes to build directory"
+  from(zipTree(vitessAdapter.files.single { it.name.startsWith("debezium-connector-vitess") && it.name.endsWith(".jar") }))
+  into(layout.buildDirectory.dir("debezium/classes"))
+  include("**/*.class")
+}
+
+val copyDebeziumToBuildRoot by tasks.registering(Copy::class) {
+  from(layout.buildDirectory.dir("debezium/classes"))
+  into(layout.buildDirectory.dir("classes/kotlin/main"))
+  include("**/*.class")
 }
 
 val transformVitess by tasks.registering(ByteBuddyTask::class) {
   group = "build"
   description = "Transform classes for use with Vitess plugin"
   source = layout.buildDirectory.dir("classes/kotlin/main")
-  target = layout.buildDirectory.dir("classes/kotlin/main")
+  target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(configurations.compileClasspath)
+  dependsOn(copyDebeziumToBuildRoot, tasks.compileKotlin, debeziumClasses)
 
   transformation {
     plugin = VitessPluginHooks::class.java
+  }
+}
+
+tasks.compileKotlin {
+  dependsOn(debeziumClasses)
+  finalizedBy(copyDebeziumToBuildRoot, transformVitess)
+}
+
+afterEvaluate {
+  tasks.named("byteBuddy") {
+    dependsOn(copyDebeziumToBuildRoot)
   }
 }
 
@@ -79,7 +105,6 @@ dependencies {
     exclude(group = "org.apache.logging.log4j", module = "log4j-api")
   }
 
-  planetscale(libs.planetscale.debezium.facade)
   planetscale(libs.planetscale.debezium.transforms)
   shadow(kotlin("stdlib"))
   vitessAdapter(debezium.connectors.vitess)
@@ -111,6 +136,8 @@ publishing {
 
 tasks {
   named("run", JavaExec::class) {
+    dependsOn(shadowJar)
+
     classpath = files(
       configurations.compileClasspath,
       configurations.runtimeClasspath,
@@ -121,7 +148,11 @@ tasks {
   shadowJar {
     archiveClassifier = ""
     archiveBaseName = "planetscale-debezium-adapter"
-    configurations = listOf(vitessAdapter)
+    configurations = listOf()
+    includeEmptyDirs = false
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+
     relocate(vitessPackage, "${packagePrefix}.${vitessPackage}")
     from(jar)
     mergeServiceFiles()
@@ -146,6 +177,8 @@ tasks {
       "com/planetscale/codegen/**",
       // don't include kotlin metadata
       "META-INF/*.kotlin_module",
+      // don't include metadata about the vitess adapter
+      "META-INF/maven/**",
     )
     manifest {
       attributes(

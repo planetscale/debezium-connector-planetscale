@@ -8,7 +8,6 @@
 
 pluginManagement {
   includeBuild("../build-logic")
-  includeBuild("../facade")
   includeBuild("../transformer")
   includeBuild("../transforms")
 

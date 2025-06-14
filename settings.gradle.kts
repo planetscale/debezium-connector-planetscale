@@ -47,7 +47,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "debezium-connector-planetscale"
 
-includeBuild("facade")
 includeBuild("debezium-planetscale")
 
 enableFeaturePreview("STABLE_CONFIGURATION_CACHE")

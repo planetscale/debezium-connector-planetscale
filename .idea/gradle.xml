@@ -17,11 +17,6 @@
                   <project path="$PROJECT_DIR$/debezium-planetscale" />
                 </projects>
               </build>
-              <build path="$PROJECT_DIR$/facade" name="facade">
-                <projects>
-                  <project path="$PROJECT_DIR$/facade" />
-                </projects>
-              </build>
               <build path="$PROJECT_DIR$/transformer" name="transformer">
                 <projects>
                   <project path="$PROJECT_DIR$/transformer" />
@@ -42,7 +37,6 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/build-logic" />
             <option value="$PROJECT_DIR$/debezium-planetscale" />
-            <option value="$PROJECT_DIR$/facade" />
             <option value="$PROJECT_DIR$/transformer" />
             <option value="$PROJECT_DIR$/transforms" />
           </set>

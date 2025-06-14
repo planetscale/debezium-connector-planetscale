@@ -1,6 +1,5 @@
 val allProjects = listOf(
   "debezium-planetscale",
-  "facade",
   "transformer",
   "transforms",
 )
