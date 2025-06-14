@@ -77,12 +77,58 @@ Before transformations are applied, decompiling the `VitessConnector` class in I
 
 ![](./images/connector-transform-before.png)
 
-> Find this class at the (fully built codebase) path:
+> Find this class at the path after building the codebase:<br />
 > `debezium-planetscale/build/debezium/classes/io/debezium/connector/vitess/VitessConnector.class`
 
 After transformations are applied, decompiling the `VitessConnector` class in IDEA shows the injected call:
 
 ![](./images/connector-transform-after.png)
 
-> Find this class at the (fully built codebase) path:
-> `debezium-planetscale/build/debezium/classes/io/debezium/connector/vitess/VitessConnector.class`
+> Find this class at the path after building the codebase:<br />
+> `debezium-planetscale/build/classes/kotlin-transformed/main/io/debezium/connector/vitess/VitessConnector.class`
+
+### Partially-Shadowed JAR
+
+To facilitate running the adapter, a partially-shadowed JAR is created, which, in substance, replaces the upstream
+Vitess adapter JAR for users. This JAR is assembled in a manner which is careful to avoid runtime class loading
+conflicts, even with the upstream Vitess adapter which is wrapped to create the Planetscale adapter.
+
+**The shadowed JAR contains:**
+
+- All transformed classes from the Vitess adapter, relocated to a subordinate package.
+- All local classes involved in implementing hooks and override logic.
+
+No other dependencies are included in the shadowed JAR, as it is still intended to be used in conjunction with a
+classpath assembled from the same dependencies as the upstream Vitess adapter.
+
+![](./images/classes-shaded-pt1.png)
+![](./images/classes-shaded-pt2.png)
+
+> [!NOTE] Services are rewritten to account for relocations, and for the injected Planetscale adapter facade. See below
+> for details.
+
+### SPI and Relocations
+
+The following services are supported by the final Planetscale adapter JAR:
+
+**`META-INF/services/org.apache.kafka.connect.source.SourceConnector`**
+```
+com.planetscale.debezium.PlanetscaleConnector
+```
+
+**`META-INF/services/io.debezium.converters.spi.CloudEventsProvider`**
+```
+com.planetscale.debezium.converters.PlanetscaleCloudEventsProvider
+```
+
+In effect, this means that only the Planetscale adapter will show up as a registered Kafka Connect source. For users to
+use the original Vitess adapter, they must explicitly install the upstream Vitess adapter JAR, as normal.
+
+### Publishing
+
+After assembling the partially-shadowed JAR, a POM is assembled which matches the upstream Vitess adapter's requisite
+dependencies. Thus, end-users can use the Planetscale adapter as a drop-in replacement for the upstream Vitess adapter,
+with the same dependencies, and no class conflicts.
+
+The final published JAR can be signed, published to Sigstore, and published with full SBOM/SLSA metadata without
+violation, so long as signatures are properly discarded from upstream JARs constituent to the shadowed adapter JAR.
