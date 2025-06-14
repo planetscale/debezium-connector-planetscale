@@ -45,3 +45,13 @@ jobs:
         uses: gradle/actions/wrapper-validation@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
       - name: "Build: Gradle"
         run: ./gradlew --no-daemon --scan build test check
+      - name: "Artifact: Maven Repository"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: 'maven-repository-${{ github.sha }}'
+          path: ./build/m2
+      - name: "Artifact: Shadow JAR"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: 'adapter-jar-${{ github.sha }}'
+          path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
