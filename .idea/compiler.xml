@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <bytecodeTargetLevel>
+      <module name="debezium-connector-planetscale.buildSrc" target="23" />
+      <module name="debezium-connector-planetscale.buildSrc.main" target="23" />
+      <module name="debezium-connector-planetscale.buildSrc.test" target="23" />
+      <module name="debezium-connector-planetscale.lib" target="1.8" />
+      <module name="debezium-connector-planetscale.lib.main" target="1.8" />
+      <module name="debezium-connector-planetscale.lib.test" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

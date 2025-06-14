@@ -1,0 +1,1 @@
+FROM mcr.microsoft.com/vscode/devcontainers/java:21@sha256:dd2fc1caf7b6f6e5ae594d70792777ad13ede078a8356b112a2fd4e51adcd34c

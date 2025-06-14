@@ -1,0 +1,15 @@
+#
+# Copyright (c) 2025 James S. Clark
+#
+# This is private source code.  You may not use, copy, or distribute this file under any circumstances without written
+# permission from the copyright holder, depicted above. All rights reserved.
+#
+
+[versions]
+# @TODO(sgammon): Unify this with the value in `gradle.properties` via resolution constraints.
+debezium = "3.1.2.Final"
+
+[libraries]
+core = { module = "io.debezium:debezium-core", version.ref = "debezium" }
+embedded = { module = "io.debezium:debezium-embedded", version.ref = "debezium" }
+connectors-mysql = { module = "io.debezium:debezium-connector-mysql", version.ref = "debezium" }

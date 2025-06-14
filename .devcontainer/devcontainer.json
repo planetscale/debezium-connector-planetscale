@@ -1,0 +1,43 @@
+{
+  "name": "Debezium Planetscale Adapter: Dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": ["--init", "--privileged"],
+  "postAttachCommand": "code .devcontainer/README.md",
+  "overrideCommand": false,
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/rchaganti/vsc-devcontainer-features/cosign:1": {}
+  },
+  "customizations": {
+    "codespaces": {
+      "openFiles": [".devcontainer/README.md"]
+    },
+    "vscode": {
+      "settings": {
+        "java.completion.enabled": true,
+        "java.debug.settings.enableRunDebugCodeLens": true,
+        "java.test.editor.enableShortcuts": true,
+        "explorer.autoReveal": "focusNoScroll",
+        "terminal.integrated.gpuAcceleration": "on",
+        "terminal.integrated.enableImages": true,
+        "terminal.integrated.customGlyphs": true,
+        "workbench.editorAssociations": {
+          "*.md": "vscode.markdown.preview.editor"
+        }
+      },
+      "extensions": [
+        "asf.apache-netbeans-java",
+        "mathiasfrohlich.kotlin",
+        "github.codespaces",
+        "github.copilot",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        "redhat.vscode-yaml",
+        "sourcegraph.sourcegraph"
+      ]
+    }
+  }
+}

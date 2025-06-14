@@ -1,0 +1,52 @@
+/*
+* Copyright (c) 2025 James S. Clark
+*
+* This is private source code.  You may not use, copy, or distribute this file under any circumstances without written
+* permission from the copyright holder, depicted above. All rights reserved.
+*/
+@file:Suppress("UnstableApiUsage")
+
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+  `maven-publish`
+  distribution
+  signing
+  idea
+  java
+  `jvm-toolchains`
+  `java-gradle-plugin`
+  `kotlin-dsl`
+}
+
+group = "com.planetscale.labs"
+
+val javaTarget = 21
+val javaVersion = JavaVersion.toVersion(javaTarget)
+val kotlinJvmTarget = JvmTarget.fromTarget(javaTarget.toString())
+
+java {
+  sourceCompatibility = javaVersion
+  targetCompatibility = javaVersion
+}
+
+kotlin {
+  compilerOptions {
+    jvmTarget = kotlinJvmTarget
+  }
+}
+
+dependencies {
+  implementation(gradleApi())
+  implementation(libs.plugin.bytebuddy)
+  implementation(libs.plugin.kotlin.jvm)
+}
+
+gradlePlugin {
+  plugins {
+    create("internalBuild") {
+      id = "com.planetscale.debezium.conventions"
+      implementationClass = "com.planetscale.conventions.PlanetscaleConventionsPlugin"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+name: "Build"
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        name: "Runner"
+        description: "Runner to use for the job"
+        default: "ubuntu-latest"
+  workflow_call:
+    inputs:
+      runner:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+
+jobs:
+  build-and-test:
+    name: "Build and Test"
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    steps:
+      - name: "Setup: Checkout"
+        uses: actions/checkout@v4

@@ -1,0 +1,57 @@
+#
+# Copyright (c) 2025 James S. Clark
+#
+# This is private source code.  You may not use, copy, or distribute this file under any circumstances without written
+# permission from the copyright holder, depicted above. All rights reserved.
+#
+
+[versions]
+commons-math3 = "3.6.1"
+guava = "33.4.5-jre"
+junit-jupiter-engine = "5.12.1"
+bytebuddy = "1.17.5"
+shadow = "8.3.6"
+spdx = "0.9.0"
+kotlin = "2.1.20"
+vitess-client = "22.0.0"
+grpc = "1.64.0"
+
+[libraries]
+bytebuddy = { module = "net.bytebuddy:byte-buddy", version.ref = "bytebuddy" }
+commons-math3 = { module = "org.apache.commons:commons-math3", version.ref = "commons-math3" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit-jupiter-engine" }
+kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
+plugin-kotlin-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+plugin-bytebuddy = { module = "net.bytebuddy:byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
+vitess-grpc-client = { module = "io.vitess:vitess-grpc-client", version.ref = "vitess-client" }
+grpc-core = { module = "io.grpc:grpc-core", version.ref = "grpc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
+grpc-auth = { module = "io.grpc:grpc-auth", version.ref = "grpc" }
+
+# Internal library references.
+planetscale-debezium = { module = "com.planetscale.labs:debezium-planetscale" }
+planetscale-debezium-facade = { module = "com.planetscale.labs:facade" }
+planetscale-debezium-transforms = { module = "com.planetscale.labs:transforms" }
+planetscale-debezium-transformer = { module = "com.planetscale.labs:transformer" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+bytebuddy = { id = "net.bytebuddy.byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+spdx = { id = "org.spdx.sbom", version.ref = "spdx" }
+planetscale-debezium = { id = "com.planetscale.debezium" }
+planetscale-debezium-build = { id = "com.planetscale.debezium.conventions" }
+
+[bundles]
+bytebuddy = [
+  "bytebuddy"
+]
+
+vitess-client = [
+  "vitess-grpc-client",
+  "grpc-core",
+  "grpc-stub",
+  "grpc-auth"
+]

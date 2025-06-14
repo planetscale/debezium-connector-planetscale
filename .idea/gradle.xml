@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/build-logic" name="build-logic">
+                <projects>
+                  <project path="$PROJECT_DIR$/build-logic" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/facade" name="facade">
+                <projects>
+                  <project path="$PROJECT_DIR$/facade" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/transformer" name="transformer">
+                <projects>
+                  <project path="$PROJECT_DIR$/transformer" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/transforms" name="transforms">
+                <projects>
+                  <project path="$PROJECT_DIR$/transforms" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="gradleJvm" value="temurin-23" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/build-logic" />
+            <option value="$PROJECT_DIR$/debezium-planetscale" />
+            <option value="$PROJECT_DIR$/facade" />
+            <option value="$PROJECT_DIR$/transformer" />
+            <option value="$PROJECT_DIR$/transforms" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>
