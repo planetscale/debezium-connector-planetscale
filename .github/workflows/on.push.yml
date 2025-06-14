@@ -12,3 +12,7 @@ jobs:
   build:
     name: "Build"
     uses: ./.github/workflows/job.build.yml
+    permissions:
+      actions: read # Needed for detection of GitHub Actions environment (SLSA).
+      contents: write # Needed for provenance signing and ID (SLSA).
+      id-token: write # Needed for release uploads (SLSA).
