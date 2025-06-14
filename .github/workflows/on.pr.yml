@@ -1,18 +1,35 @@
 name: "PR"
 
-permissions:
-  contents: read
-
 on:
   pull_request:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: "Build"
     uses: ./.github/workflows/job.build.yml
+    secrets:
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
       id-token: write # Needed for release uploads (SLSA).
+  review:
+    name: "Review"
+    uses: ./.github/workflows/job.review.yml
+    secrets:
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    permissions:
+      contents: read # Ability to clone the project.
+      pull-requests: read # Needed to read PR details and comments.
+      issues: read # Needed to read referenced issue details and comments.
+      id-token: write # Needed for uploads of artifacts.

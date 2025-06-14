@@ -1,0 +1,102 @@
+name: "AI - Claude Code Review"
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      cache_read_only:
+        description: "Cache: Read Only"
+        required: false
+        type: string
+        default: "true"
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+        description: "Anthropic API Key"
+      GRADLE_ENCRYPTION_KEY:
+        required: false
+        description: "Gradle Cache Encryption Key"
+
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: "Runner"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      cache_read_only:
+        description: "Cache: Read Only"
+        required: false
+        type: string
+        default: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-pr-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    name: "Claude"
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    if: |
+      !contains(github.event.pull_request.title, '[skip-review]') &&
+      !contains(github.event.pull_request.title, '[WIP]')
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+    steps:
+      - name: "Setup: Harden Runner"
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          disable-sudo: true
+          egress-policy: audit
+      - name: "Setup: Checkout"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+      - name: "Setup: JVM"
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '21' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
+      - name: "Setup: Elide"
+        uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
+      - name: "Setup: Gradle"
+        uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
+        with:
+          dependency-graph: ${{ inputs.graph || 'disabled' }}
+          dependency-graph-continue-on-failure: 'true'
+          cache-overwrite-existing: true
+          cache-read-only: ${{ inputs.cache_read_only || 'true' }}
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      - name: "Review: Claude"
+        id: claude-review
+        uses: anthropics/claude-code-action@41dd0aa695a06b94f18ce26fd851bfd6ed9d8760 # beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_tools: |
+            Bash(./gradlew build)
+            Bash(./gradlew test)
+            Bash(./gradlew check)
+            Bash(./gradlew clean)
+
+          direct_prompt: |
+            Please review this pull request and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+
+            Be constructive and helpful in your feedback.
+
+            Keep in mind that this is a bytecode-only fork of Debezium Vitess. Consume the `docs/` directory for more
+            information about project architecture.

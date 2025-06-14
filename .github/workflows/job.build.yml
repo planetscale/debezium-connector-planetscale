@@ -1,8 +1,5 @@
 name: "Build"
 
-permissions:
-  contents: read
-
 on:
   workflow_dispatch:
     inputs:
@@ -18,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      depengraph:
+        description: "Dependency Graph"
+        required: false
+        default: "generate-submit-and-upload"
+        type: string
 
   workflow_call:
     inputs:
@@ -33,10 +35,31 @@ on:
         required: false
         default: false
         type: boolean
+      graph:
+        description: "Dependency Graph"
+        required: false
+        default: "disabled"
+        type: string
+      cache_read_only:
+        description: "Cache: Read Only"
+        required: false
+        type: string
+        default: "false"
     outputs:
       checksums:
         description: "Checksums"
         value: ${{ jobs.build-and-test.outputs.hashes }}
+    secrets:
+      GRADLE_ENCRYPTION_KEY:
+        description: "Gradle Encryption Key"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.sha }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -78,23 +101,25 @@ jobs:
       - name: "Setup: JVM"
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
         with:
-          java-version: '21'
-          distribution: 'zulu'
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '21' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
       - name: "Setup: Elide"
         uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
       - name: "Setup: Gradle"
         uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
         with:
-          dependency-graph: 'generate-submit-and-upload'
+          dependency-graph: ${{ inputs.graph || 'disabled' }}
           dependency-graph-continue-on-failure: 'true'
-          cache-disabled: 'true'
+          cache-overwrite-existing: true
+          cache-read-only: ${{ inputs.cache_read_only || 'true' }}
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: "Check: Gradle Wrapper"
         uses: gradle/actions/wrapper-validation@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
       - name: "Outputs: Short SHA"
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: "Build: Gradle"
-        run: ./gradlew --no-daemon --scan build test check
+        run: ./gradlew --scan build test check
       - name: "Artifact: Maven Repository"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -1,21 +1,26 @@
 name: "CI"
 
-permissions:
-  contents: read
-
 on:
   push:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: "Build"
     uses: ./.github/workflows/job.build.yml
+    secrets:
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
       id-token: write # Needed for release uploads (SLSA).
     with:
-      ## Enable provenance with SLSA.
       provenance: true
