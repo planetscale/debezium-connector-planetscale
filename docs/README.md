@@ -48,25 +48,22 @@ Here is a simple example transformation:
 ```kotlin
 // Implements a BuildBuddy build-time transformation which intercepts a method.
 class VitessHello : AbstractTransform() {
-  override fun matches(target: TypeDescription): Boolean = target.simpleName == VitessConnector::class.java.simpleName
+  // We are interested in transforming the `VitessConnector` class.
+  override fun matches(target: TypeDescription): Boolean = target.simpleName == "VitessConnector"
 
-  override fun apply(
-    builder: DynamicType.Builder<*>,
-    typeDescription: TypeDescription,
-    classFileLocator: ClassFileLocator
-  ): DynamicType.Builder<*> = builder
+  override fun transform(builder: Builder<*>): Builder<*> = builder
     // intercept the method `start`
     .method(ElementMatchers.named("start"))
     // delegate it to `DebeziumVitessHello.start`
     .intercept(MethodDelegation.to(DebeziumVitessHello::class.java))
-    // make the class, so it is persisted and checked at build time
-    .also { it.make() }
 }
 ```
 
 **`DebeziumVitessHello.kt`**
 ```kotlin
+// Must be an `object` so that all methods are static.
 object DebeziumVitessHello {
+  // Must have matching signature to the intercepted method. BuildBuddy will check at build time.
   @JvmStatic fun start(props: java.util.Map<String, String>?) {
     println("Hello intercepted method!")
   }

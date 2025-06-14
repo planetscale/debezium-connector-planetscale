@@ -8,6 +8,8 @@ package com.planetscale.codegen.transforms
 
 import net.bytebuddy.build.Plugin
 import net.bytebuddy.description.type.TypeDescription
+import net.bytebuddy.dynamic.ClassFileLocator
+import net.bytebuddy.dynamic.DynamicType
 
 abstract class AbstractTransform : Plugin {
   override fun matches(target: TypeDescription): Boolean {
@@ -16,5 +18,19 @@ abstract class AbstractTransform : Plugin {
 
   override fun close() {
     // nothing at this time
+  }
+
+  override fun apply(
+    builder: DynamicType.Builder<*>,
+    typeDescription: TypeDescription,
+    classFileLocator: ClassFileLocator
+  ): DynamicType.Builder<*> = transform(
+    builder,
+  ).also {
+    it.make()
+  }
+
+  open fun transform(builder: DynamicType.Builder<*>): DynamicType.Builder<*> {
+    return builder  // by default, no transformation
   }
 }
