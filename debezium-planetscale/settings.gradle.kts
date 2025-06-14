@@ -8,6 +8,8 @@
 
 pluginManagement {
   includeBuild("../build-logic")
+  includeBuild("../facade")
+  includeBuild("../transformer")
 
   repositories {
     mavenCentral()

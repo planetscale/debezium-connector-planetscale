@@ -6,6 +6,7 @@
  */
 plugins {
   alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.planetscale.debezium.build)
 }
 
 group = "com.planetscale.labs"

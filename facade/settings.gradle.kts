@@ -36,4 +36,4 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "debezium-planetscale"
+rootProject.name = "facade"

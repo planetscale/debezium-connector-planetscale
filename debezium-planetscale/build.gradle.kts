@@ -4,12 +4,19 @@
  * This is private source code.  You may not use, copy, or distribute this file under any circumstances without written
  * permission from the copyright holder, depicted above. All rights reserved.
  */
-@file:Suppress("VulnerableLibrariesLocal")
+@file:Suppress("VulnerableLibrariesLocal", "unused")
+
+import com.planetscale.codegen.transforms.VitessPluginHooks
+import net.bytebuddy.build.gradle.Adjustment
+import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
+import net.bytebuddy.build.gradle.ByteBuddyTask
 
 plugins {
   alias(libs.plugins.shadow)
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.spdx)
+  alias(libs.plugins.bytebuddy)
+  alias(libs.plugins.planetscale.debezium)
   alias(libs.plugins.planetscale.debezium.build)
   signing
   `java-library`
@@ -17,11 +24,40 @@ plugins {
 }
 
 group = "com.planetscale.labs"
+version = debezium.versions.debezium.get()
 val packagePrefix = group as String
 val vitessPackage = "io.debezium.connector.vitess"
 
 val planetscaleAdapter: Configuration by configurations.creating
 val vitessAdapter: Configuration by configurations.creating
+
+fun DependencyHandlerScope.planetscale(dep: Provider<MinimalExternalModuleDependency>) {
+  planetscaleAdapter(dep) { isTransitive = false }
+}
+
+kotlin {
+  explicitApi()
+}
+
+byteBuddy {
+  transformation {
+    plugin = VitessPluginHooks::class.java
+  }
+  adjustment = Adjustment.SELF
+  adjustmentErrorHandler = ErrorHandler.IGNORE
+}
+
+val transformVitess by tasks.registering(ByteBuddyTask::class) {
+  group = "build"
+  description = "Transform classes for use with Vitess plugin"
+  source = layout.buildDirectory.dir("classes/kotlin/main")
+  target = layout.buildDirectory.dir("classes/kotlin/main")
+  classPath.from(configurations.compileClasspath)
+
+//  transformation {
+//    plugin = VitessPluginHooks::class.java
+//  }
+}
 
 dependencies {
   api(debezium.core)
@@ -36,7 +72,8 @@ dependencies {
     exclude(group = "org.apache.logging.log4j", module = "log4j-api")
   }
 
-  planetscaleAdapter(libs.planetscale.debezium.facade)
+  planetscale(libs.planetscale.debezium.facade)
+  planetscale(libs.planetscale.debezium.transforms)
   vitessAdapter(debezium.connectors.vitess)
 
   testImplementation(libs.kotlin.test.junit5)
@@ -69,7 +106,11 @@ tasks {
     archiveBaseName = "planetscale-debezium-adapter"
     configurations = listOf(vitessAdapter)
     relocate(vitessPackage, "${packagePrefix}.${vitessPackage}")
+
     from(jar)
+    from(files(planetscaleAdapter))
+
+    mergeServiceFiles()
 
     dependencyFilter.include {
       debezium.connectors.vitess.get().let { vitessAdapter ->
@@ -77,12 +118,16 @@ tasks {
         it.moduleGroup == vitessAdapter.group && it.moduleName == vitessAdapter.name
       }
     }
-
     exclude(
       // don't include specifications from the original vitess connector.
-      "META-INF/maven/io.debezium/debezium-connector-vitess/"
+      "META-INF/maven/io.debezium/debezium-connector-vitess/",
+      // don't include bytebuddy
+      "net/bytebuddy/**",
+      // don't include build-time transform code
+      "com/planetscale/codegen/**",
+      // don't include kotlin metadata
+      "META-INF/*.kotlin_module",
     )
-
     manifest {
       attributes(
         "Implementation-Title" to "Planetscale Debezium Adapter",

@@ -10,8 +10,8 @@
  */
 package com.planetscale.debezium
 
-class Library {
-    fun someLibraryMethod(): Boolean {
+public object PlanetscaleDebezium {
+    public fun setup(): Boolean {
         return true
     }
 }

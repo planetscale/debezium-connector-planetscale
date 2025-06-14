@@ -47,8 +47,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "debezium-connector-planetscale"
 
-includeBuild("debezium-planetscale")
 includeBuild("facade")
+includeBuild("debezium-planetscale")
 
 enableFeaturePreview("STABLE_CONFIGURATION_CACHE")
 enableFeaturePreview("GROOVY_COMPILATION_AVOIDANCE")
