@@ -16,3 +16,6 @@ jobs:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
       id-token: write # Needed for release uploads (SLSA).
+    with:
+      ## Enable provenance with SLSA.
+      provenance: true

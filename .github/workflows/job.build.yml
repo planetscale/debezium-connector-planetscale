@@ -13,6 +13,11 @@ on:
         description: "Release"
         default: false
         type: boolean
+      provenance:
+        description: "SLSA Provenance"
+        required: false
+        default: false
+        type: boolean
 
   workflow_call:
     inputs:
@@ -21,6 +26,10 @@ on:
         type: string
         default: "ubuntu-latest"
       release:
+        required: false
+        default: false
+        type: boolean
+      provenance:
         required: false
         default: false
         type: boolean
@@ -115,6 +124,7 @@ jobs:
     name: "SLSA"
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     needs: [build-and-test]
+    if: inputs.provenance
     permissions:
       actions: read # Needed for detection of GitHub Actions environment.
       id-token: write # Needed for provenance signing and ID
