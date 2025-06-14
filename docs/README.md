@@ -101,7 +101,8 @@ classpath assembled from the same dependencies as the upstream Vitess adapter.
 ![](./images/classes-shaded-pt1.png)
 ![](./images/classes-shaded-pt2.png)
 
-> [!NOTE] Services are rewritten to account for relocations, and for the injected Planetscale adapter facade. See below
+> [!NOTE]
+> Services are rewritten to account for relocations, and for the injected Planetscale adapter facade. See below
 > for details.
 
 ### SPI and Relocations
