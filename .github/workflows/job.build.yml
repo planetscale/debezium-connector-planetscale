@@ -41,6 +41,7 @@ jobs:
         with:
           dependency-graph: 'generate-submit-and-upload'
           dependency-graph-continue-on-failure: 'true'
+          cache-disabled: 'true'
       - name: "Check: Gradle Wrapper"
         uses: gradle/actions/wrapper-validation@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4
       - name: "Build: Gradle"

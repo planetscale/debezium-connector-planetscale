@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 @Suppress("unused") // used at build time
 class PlanetscaleConventionsPlugin : Plugin<Project> {
   // Java toolchain configuration.
-  private val toolchainVersion = JavaLanguageVersion.of(23)
+  private val toolchainVersion = JavaLanguageVersion.of(21)
   private val toolchainVendor = JvmVendorSpec.AZUL
 
   override fun apply(target: Project) {

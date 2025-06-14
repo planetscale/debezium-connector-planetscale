@@ -54,9 +54,9 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   target = layout.buildDirectory.dir("classes/kotlin/main")
   classPath.from(configurations.compileClasspath)
 
-//  transformation {
-//    plugin = VitessPluginHooks::class.java
-//  }
+  transformation {
+    plugin = VitessPluginHooks::class.java
+  }
 }
 
 dependencies {
