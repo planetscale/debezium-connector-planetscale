@@ -18,4 +18,71 @@ updates and fixes can be adopted here as fast as possible and with minimal effor
 
 ## Architecture
 
-Coming soon.
+```mermaid
+flowchart TD
+  A[Debezium Vitess] -->|Pull from Maven| B(Unpack upstream classes)
+  C[Planetscale Modifications] --> D
+  B --> D(Bytecode Transformation)
+  D --> E[Partially Shadowed JAR, Class relocations]
+  E --> F[Adapter JAR with identical dependencies]
+  F --> G(Publish to Maven)
+```
+
+1) The upstream Debezium Vitess adapter is pulled from Maven.
+2) The upstream classes are unpacked.
+3) Bytecode transformations are applied from the [`transforms`](../transforms), by the [`transformer`](../transformer).
+4) A partially-shadowed JAR is created, with the following attributes:
+   - All transformed classes from the Vitess adapter.
+   - All local classes involved in implementing hooks and override logic.
+   - The upstream Vitess adapter classes are relocated to a subordinate package.
+5) An adapter JAR is created which perfectly mirrors the upstream Vitess adapter's dependencies.
+
+### Bytecode Transformations
+
+This codebase uses [ByteBuddy](https://bytebuddy.net/) to perform transformation of both upstream and local bytecode.
+Types are created (or modified) via [ByteBuddy's Gradle plugin](https://bytebuddy.net/#gradle-plugin).
+
+Here is a simple example transformation:
+
+**`VitessHello.kt`**
+```kotlin
+// Implements a BuildBuddy build-time transformation which intercepts a method.
+class VitessHello : AbstractTransform() {
+  override fun matches(target: TypeDescription): Boolean = target.simpleName == VitessConnector::class.java.simpleName
+
+  override fun apply(
+    builder: DynamicType.Builder<*>,
+    typeDescription: TypeDescription,
+    classFileLocator: ClassFileLocator
+  ): DynamicType.Builder<*> = builder
+    // intercept the method `start`
+    .method(ElementMatchers.named("start"))
+    // delegate it to `DebeziumVitessHello.start`
+    .intercept(MethodDelegation.to(DebeziumVitessHello::class.java))
+    // make the class, so it is persisted and checked at build time
+    .also { it.make() }
+}
+```
+
+**`DebeziumVitessHello.kt`**
+```kotlin
+object DebeziumVitessHello {
+  @JvmStatic fun start(props: java.util.Map<String, String>?) {
+    println("Hello intercepted method!")
+  }
+}
+```
+
+Before transformations are applied, decompiling the `VitessConnector` class in IDEA yields:
+
+![](./images/connector-transform-before.png)
+
+> Find this class at the (fully built codebase) path:
+> `debezium-planetscale/build/debezium/classes/io/debezium/connector/vitess/VitessConnector.class`
+
+After transformations are applied, decompiling the `VitessConnector` class in IDEA shows the injected call:
+
+![](./images/connector-transform-after.png)
+
+> Find this class at the (fully built codebase) path:
+> `debezium-planetscale/build/debezium/classes/io/debezium/connector/vitess/VitessConnector.class`
