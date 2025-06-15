@@ -15,11 +15,16 @@ on:
         required: false
         default: false
         type: boolean
-      depengraph:
+      graph:
         description: "Dependency Graph"
         required: false
         default: "generate-submit-and-upload"
         type: string
+      build:
+        description: "Build"
+        required: false
+        default: true
+        type: boolean
 
   workflow_call:
     inputs:
@@ -45,6 +50,12 @@ on:
         required: false
         type: string
         default: "false"
+      build:
+        description: "Build"
+        required: false
+        default: true
+        type: boolean
+
     outputs:
       checksums:
         description: "Checksums"
@@ -64,6 +75,7 @@ concurrency:
 jobs:
   build-and-test:
     name: "Build and Test"
+    if: inputs.build
     runs-on: ${{ inputs.runner || vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     permissions:
       contents: read
@@ -150,7 +162,7 @@ jobs:
     name: "SLSA"
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     needs: [build-and-test]
-    if: inputs.provenance
+    if: inputs.build && inputs.provenance
     permissions:
       actions: read # Needed for detection of GitHub Actions environment.
       id-token: write # Needed for provenance signing and ID

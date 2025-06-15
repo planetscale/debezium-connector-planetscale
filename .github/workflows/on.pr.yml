@@ -60,13 +60,14 @@ jobs:
     name: "Build"
     needs: [triage]
     uses: ./.github/workflows/job.build.yml
-    if: needs.triage.outputs.sources == 'true'
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
       id-token: write # Needed for release uploads (SLSA).
+    with:
+      build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
 
   review:
     name: "Review"
