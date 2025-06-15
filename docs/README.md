@@ -16,6 +16,9 @@ In order to avoid upstream merge conflicts and achieve a minimal coupling surfac
 **in bytecode**, effectively, and only overrides necessary logic to create a Planetscale connector. Thus, upstream feature
 updates and fixes can be adopted here as fast as possible and with minimal effort.
 
+- **[Developer Docs](./dev.md)**
+- **[Research Material](./research/10-claude-adapter-structure)**
+
 ## Architecture
 
 ```mermaid
