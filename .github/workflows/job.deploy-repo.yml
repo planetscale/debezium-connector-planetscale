@@ -1,0 +1,85 @@
+name: "Deploy - Maven"
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      artifact:
+        required: true
+        type: string
+      bucket:
+        required: true
+        type: string
+        default: "planetscale-maven-dev"
+    secrets:
+      S3_ACCESS_KEY_ID:
+        required: true
+        description: "S3 Access Key ID"
+      S3_SECRET_ACCESS_KEY:
+        required: true
+        description: "S3 Secret Access Key"
+
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: "Runner"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      artifact:
+        description: "Artifact"
+        required: true
+        type: string
+      bucket:
+        description: "Bucket"
+        required: true
+        type: string
+        default: "planetscale-maven-dev"
+      environment:
+        description: "Environment"
+        required: true
+        default: sandbox
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-to-r2:
+    name: "Maven"
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+    steps:
+      - name: "Setup: Harden Runner"
+        uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
+        with:
+          disable-sudo: true
+          egress-policy: audit
+      - name: "Setup: Artifacts"
+        id: download
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ inputs.artifact }}
+          merge-multiple: 'true'
+      - name: "Setup: Authorization"
+        run: |
+          echo "[r2]" >> rclone.conf
+          echo "type = s3" >> rclone.conf
+          echo "provider = Cloudflare" >> rclone.conf
+          echo "access_key_id = ${{ secrets.S3_ACCESS_KEY_ID }}" >> rclone.conf
+          echo "secret_access_key = ${{ secrets.S3_SECRET_ACCESS_KEY }}" >> rclone.conf
+          echo "region = auto" >> rclone.conf
+          echo "endpoint = ${{ vars.S3_ENDPOINT }}" >> rclone.conf
+      - name: "Deploy: Maven"
+        run: |
+          wget https://github.com/rclone/rclone/releases/download/v1.69.3/rclone-v1.69.3-linux-amd64.zip
+          unzip rclone-v1.69.3-linux-amd64.zip
+          cd "${{ steps.download.outputs.download-path }}"
+          $GITHUB_WORKSPACE/rclone-v1.69.3-linux-amd64/rclone --config $GITHUB_WORKSPACE/rclone.conf copy --progress . r2:${{ inputs.bucket }}
