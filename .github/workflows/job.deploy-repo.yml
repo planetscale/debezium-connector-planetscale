@@ -52,7 +52,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: deploy-${{ github.sha }}
@@ -64,6 +63,7 @@ jobs:
     runs-on: ${{ inputs.runner }}
     permissions:
       contents: read
+      actions: read
     steps:
       - name: "Setup: Harden Runner"
         uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
