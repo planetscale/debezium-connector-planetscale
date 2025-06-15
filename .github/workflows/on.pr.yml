@@ -60,6 +60,7 @@ jobs:
     name: "Build"
     needs: [triage]
     uses: ./.github/workflows/job.build.yml
+    if: needs.triage.outputs.sources == 'true'
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
@@ -72,7 +73,7 @@ jobs:
     uses: ./.github/workflows/job.review.yml
     needs: [triage]
     # don't run for drafts or dependabot
-    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]'
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && needs.triage.outputs.sources == 'true'
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
