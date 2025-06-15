@@ -34,6 +34,20 @@ unit or integration testing.
 
 ### Publishing
 
+Make sure you pass the right parameters to enable signing:
+```
+./gradlew \
+  -Pplanetscale.release=true \
+  -Pplanetscale.sigstore=true \
+  build test check publish;
+```
+
+> [!TIP]
+> If you just want to sign locally, set `planetscale.sigstore` to `false`. Neither of these properties are required to
+> be set to run `publish`, which publishes to `./debezium-planetscale/build/m2`.
+
+#### Uploading and Using the Artifacts
+
 To publish these resources as a valid Maven repository via any S3-compliant service, navigate to this root, and use
 `rclone` to copy the contents to the remote bucket:
 

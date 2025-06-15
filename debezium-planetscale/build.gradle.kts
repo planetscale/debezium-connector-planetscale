@@ -8,6 +8,7 @@
 
 import com.planetscale.PlanetscaleBuild
 import com.planetscale.codegen.transforms.VitessHello
+import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
 import net.bytebuddy.build.gradle.ByteBuddyTask
@@ -21,6 +22,7 @@ plugins {
   alias(libs.plugins.shadow)
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.spdx)
+  alias(libs.plugins.sigstore)
   alias(libs.plugins.bytebuddy)
   alias(libs.plugins.planetscale.debezium)
   alias(libs.plugins.planetscale.debezium.build)
@@ -30,6 +32,8 @@ val packagePrefix = PlanetscaleBuild.PACKAGE_GROUP
 val vitessPackage = "io.debezium.connector.vitess"
 val mysqlPackage = "io.debezium.connector.mysql"
 
+val enableSigning = findProperty("planetscale.release") == "true"
+val enableSigstore = findProperty("planetscale.sigstore") == "true"
 val planetscaleAdapter: Configuration by configurations.creating
 val debeziumConnectors: Configuration by configurations.creating
 
@@ -53,10 +57,6 @@ application {
 
 kotlin {
   explicitApi()
-}
-
-signing {
-  useGpgCmd()
 }
 
 spdxSbom {
@@ -120,6 +120,13 @@ publishing {
   }
 }
 
+signing {
+  useGpgCmd()
+  isRequired = enableSigning
+  sign(publishing.publications["maven"])
+  sign(configurations.runtimeElements.get())
+}
+
 val debeziumClasses by tasks.registering(Copy::class) {
   group = "build"
   description = "Copy Debezium classes to build directory"
@@ -144,6 +151,14 @@ tasks {
   jar {
     from(transformVitess)
     dependsOn(transformVitess)
+  }
+
+  // Only enable signing when `planetscale.release` is set to true.
+  if (!enableSigning) withType<Sign>().configureEach {
+    enabled = false
+  }
+  if (!enableSigning || !enableSigstore) withType<SigstoreSignFilesTask>().configureEach {
+    enabled = false
   }
 
   compileKotlin {
@@ -207,7 +222,10 @@ tasks {
     useJUnitPlatform()
   }
 
+  publish {
+    dependsOn(shadowJar, spdxSbom)
+  }
   build {
-    dependsOn(shadowJar, publish, spdxSbom)
+    dependsOn(shadowJar, spdxSbom, publish)
   }
 }
