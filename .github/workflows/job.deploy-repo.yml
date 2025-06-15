@@ -61,6 +61,7 @@ jobs:
   deploy-to-r2:
     name: "Maven"
     runs-on: ${{ inputs.runner }}
+    environment: ${{ inputs.environment }}
     permissions:
       contents: read
       actions: read
