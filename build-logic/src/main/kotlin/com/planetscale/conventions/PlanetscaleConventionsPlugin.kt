@@ -11,6 +11,7 @@ import com.planetscale.PlanetscaleBuild.debeziumVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.kotlin.dsl.findByType
@@ -20,6 +21,12 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 // Dependencies which don't share a version with main Debezium.
 private val unalignedDeps = sortedSetOf(
   "mysql-binlog-connector-java",
+)
+
+// Configurations which should be locked and verified.
+private val meaningfulConfigurations = listOfNotNull(
+  "runtimeClasspath",
+  "compileClasspath",
 )
 
 @Suppress("unused") // used at build time
@@ -47,6 +54,27 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
     // use consistent project coordinates and versioning
     project.group = PlanetscaleBuild.PACKAGE_GROUP
     project.version = debeziumVersion
+
+    // tune jar tasks
+    project.afterEvaluate {
+      tasks.withType(Jar::class.java).configureEach {
+        isReproducibleFileOrder = true
+        isPreserveFileTimestamps = false
+      }
+    }
+
+    // lock compile and runtime configurations
+    project.afterEvaluate {
+      meaningfulConfigurations.forEach {
+        project
+          .configurations
+          .findByName(it)
+          ?.resolutionStrategy {
+            // activate use of lock-files
+            activateDependencyLocking()
+          }
+      }
+    }
 
     // use a consistent version of debezium throughout
     target.configurations.all {

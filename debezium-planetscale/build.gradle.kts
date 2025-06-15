@@ -33,6 +33,10 @@ val mysqlPackage = "io.debezium.connector.mysql"
 val planetscaleAdapter: Configuration by configurations.creating
 val debeziumConnectors: Configuration by configurations.creating
 
+listOf(planetscaleAdapter, debeziumConnectors).forEach {
+  it.resolutionStrategy.activateDependencyLocking()
+}
+
 fun DependencyHandlerScope.planetscale(dep: Provider<MinimalExternalModuleDependency>) {
   implementation(dep) { isTransitive = false }
   planetscaleAdapter(dep) { isTransitive = false }
@@ -161,8 +165,6 @@ tasks {
     archiveClassifier = ""
     archiveBaseName = "planetscale-debezium-adapter"
     includeEmptyDirs = false
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
 
     // `io.debezium.connector.vitess` → `com.planetscale.labs.io.debezium.connector.vitess`.
     relocate(vitessPackage, "${packagePrefix}.${vitessPackage}")
