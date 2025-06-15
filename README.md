@@ -28,7 +28,7 @@
 2) Add a dependency on `com.planetscale.labs:debezium-planetscale`.
    ```kotlin
    dependencies {
-     implementation("com.planetscale.labs.debezium-planetscale:3.1.2.Final")
+     implementation("com.planetscale.labs:debezium-planetscale:3.1.2.Final")
    }
    ```
 3) ???
