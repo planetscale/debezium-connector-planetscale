@@ -81,16 +81,17 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Setup: Authorization"
         run: |
-          echo "[r2]" >> rclone.conf
-          echo "type = s3" >> rclone.conf
-          echo "provider = Cloudflare" >> rclone.conf
-          echo "access_key_id = ${{ secrets.S3_ACCESS_KEY_ID }}" >> rclone.conf
-          echo "secret_access_key = ${{ secrets.S3_SECRET_ACCESS_KEY }}" >> rclone.conf
-          echo "region = auto" >> rclone.conf
-          echo "endpoint = ${{ vars.S3_ENDPOINT }}" >> rclone.conf
+          echo "[r2]" >> /tmp/rclone.conf
+          echo "type = s3" >> /tmp/rclone.conf
+          echo "provider = Cloudflare" >> /tmp/rclone.conf
+          echo "access_key_id = ${{ secrets.S3_ACCESS_KEY_ID }}" >> /tmp/rclone.conf
+          echo "secret_access_key = ${{ secrets.S3_SECRET_ACCESS_KEY }}" >> /tmp/rclone.conf
+          echo "region = auto" >> /tmp/rclone.conf
+          echo "endpoint = ${{ vars.S3_ENDPOINT }}" >> /tmp/rclone.conf
       - name: "Deploy: Maven"
         run: |
           wget https://github.com/rclone/rclone/releases/download/v1.69.3/rclone-v1.69.3-linux-amd64.zip
-          unzip rclone-v1.69.3-linux-amd64.zip
+          mkdir /tmp/rclone
+          unzip rclone-v1.69.3-linux-amd64.zip -d /tmp/rclone
           cd "${{ steps.download.outputs.download-path }}"
-          $GITHUB_WORKSPACE/rclone-v1.69.3-linux-amd64/rclone --config $GITHUB_WORKSPACE/rclone.conf copy --progress . r2:${{ inputs.bucket }}
+          /tmp/rclone/rclone --config $GITHUB_WORKSPACE/rclone.conf copy --progress . r2:${{ inputs.bucket }}
