@@ -10,6 +10,7 @@ import com.planetscale.PlanetscaleBuild
 import com.planetscale.PlanetscaleBuild.debeziumVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.dsl.LockMode
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -72,6 +73,10 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
           ?.resolutionStrategy {
             // activate use of lock-files
             activateDependencyLocking()
+
+            dependencyLocking {
+              lockMode.set(LockMode.LENIENT)
+            }
           }
       }
     }
