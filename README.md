@@ -1,7 +1,7 @@
 ![](./docs/images/planetscale-debezium-dark.png#gh-dark-mode-only)
 ![](./docs/images/planetscale-debezium-light.png#gh-light-mode-only)
 
-# Debezium × Planetscale
+# Planetscale × Debezium
 
 > [Planetscale][0] Connector for [Debezium][1] `3.1.2.Final`
 
