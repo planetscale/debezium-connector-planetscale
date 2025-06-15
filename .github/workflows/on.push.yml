@@ -9,6 +9,9 @@ on:
       - '*.md'
       - '**/*.md'
       - '.github/*.md'
+      - '.github/workflows/claude.yml'
+      - '.github/workflows/job.review.yml'
+      - '.github/workflows/job.deploy-repo.yml'
 
 permissions:
   contents: read

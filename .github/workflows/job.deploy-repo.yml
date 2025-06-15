@@ -14,6 +14,9 @@ on:
         required: true
         type: string
         default: "planetscale-maven-dev"
+      run_id:
+        required: false
+        type: string
     secrets:
       S3_ACCESS_KEY_ID:
         required: true
@@ -38,6 +41,10 @@ on:
         required: true
         type: string
         default: "planetscale-maven-dev"
+      run_id:
+        required: false
+        type: string
+        description: "Run ID"
       environment:
         description: "Environment"
         required: true
@@ -68,6 +75,7 @@ jobs:
         with:
           name: ${{ inputs.artifact }}
           merge-multiple: 'true'
+          run-id: ${{ inputs.run_id || github.run_id }}
       - name: "Setup: Authorization"
         run: |
           echo "[r2]" >> rclone.conf
