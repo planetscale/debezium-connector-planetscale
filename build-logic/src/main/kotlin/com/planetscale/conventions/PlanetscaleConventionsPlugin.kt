@@ -66,6 +66,11 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // lock compile and runtime configurations
     project.afterEvaluate {
+      if (System.getenv("CI") == "true" && project.findProperty("planetscale.release") != "true") {
+        // don't lock configurations in non-release builds, as this can cause issues with
+        // the dependency upgrade cycle.
+        return@afterEvaluate
+      }
       meaningfulConfigurations.forEach {
         project
           .configurations
