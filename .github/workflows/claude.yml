@@ -48,7 +48,7 @@ jobs:
         uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
       - name: "Run: Claude Code"
         id: claude
-        uses: anthropics/claude-code-action@41dd0aa695a06b94f18ce26fd851bfd6ed9d8760 # beta
+        uses: anthropics/claude-code-action@e0d3fec39f30dc4ed990b3ada4cbed665ce797a0 # beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           allowed_tools: |
