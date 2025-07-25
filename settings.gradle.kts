@@ -19,7 +19,7 @@ pluginManagement {
 
 plugins {
   id("com.autonomousapps.build-health") version ("2.10.1")
-  id("org.jetbrains.kotlin.jvm") version "2.1.21" apply false
+  id("org.jetbrains.kotlin.jvm") version "2.2.0" apply false
   id("com.gradle.enterprise") version ("3.16.2")
   id("com.gradle.common-custom-user-data-gradle-plugin") version ("2.1")
   id("org.gradle.toolchains.foojay-resolver-convention") version ("0.10.0")
