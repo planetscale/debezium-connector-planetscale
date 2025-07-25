@@ -15,7 +15,7 @@ import net.bytebuddy.dynamic.DynamicType
 class VitessPluginHooks : Plugin {
   private val plugins: List<Plugin> = listOf(
     VitessHello(),
-    VitessMutualTLS(),
+    VitessManagedChannel(),
   )
 
   override fun matches(target: TypeDescription): Boolean {

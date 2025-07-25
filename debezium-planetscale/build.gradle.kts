@@ -8,6 +8,7 @@
 
 import com.planetscale.PlanetscaleBuild
 import com.planetscale.codegen.transforms.VitessHello
+import com.planetscale.codegen.transforms.VitessManagedChannel
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
@@ -145,6 +146,7 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   classPath.from(configurations.compileClasspath)
   dependsOn(tasks.compileKotlin, debeziumClasses)
   transformation { plugin = VitessHello::class.java }
+  transformation { plugin = VitessManagedChannel::class.java }
 }
 
 tasks {
