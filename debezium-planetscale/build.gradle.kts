@@ -26,6 +26,7 @@ plugins {
   alias(libs.plugins.spdx)
   alias(libs.plugins.sigstore)
   alias(libs.plugins.bytebuddy)
+  alias(libs.plugins.kotlinx.abicheck)
   alias(libs.plugins.planetscale.debezium)
   alias(libs.plugins.planetscale.debezium.build)
 }
@@ -167,11 +168,15 @@ tasks {
   }
 
   // Only enable signing when `planetscale.release` is set to true.
-  if (!enableSigning) withType<Sign>().configureEach {
-    enabled = false
+  if (!enableSigning) {
+    withType<Sign>().configureEach {
+      enabled = false
+    }
   }
-  if (!enableSigning || !enableSigstore) withType<SigstoreSignFilesTask>().configureEach {
-    enabled = false
+  if (!enableSigning || !enableSigstore) {
+    withType<SigstoreSignFilesTask>().configureEach {
+      enabled = false
+    }
   }
 
   compileKotlin {
@@ -195,10 +200,10 @@ tasks {
     includeEmptyDirs = false
 
     // `io.debezium.connector.vitess` → `com.planetscale.labs.io.debezium.connector.vitess`.
-    relocate(vitessPackage, "${packagePrefix}.${vitessPackage}")
+    relocate(vitessPackage, "$packagePrefix.$vitessPackage")
 
     // `io.debezium.connector.mysql` → `com.planetscale.labs.io.debezium.connector.mysql`.
-    relocate(mysqlPackage, "${packagePrefix}.${mysqlPackage}")
+    relocate(mysqlPackage, "$packagePrefix.$mysqlPackage")
 
     // include local classes for the adapter surface.
     from(jar)

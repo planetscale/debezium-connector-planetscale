@@ -64,6 +64,9 @@ on:
       GRADLE_ENCRYPTION_KEY:
         description: "Gradle Encryption Key"
         required: false
+      CODECOV_TOKEN:
+        description: "Codecov Token"
+        required: true
 
 permissions:
   contents: read
@@ -79,6 +82,7 @@ jobs:
     runs-on: ${{ inputs.runner || vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     permissions:
       contents: read
+      checks: write
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
@@ -86,7 +90,7 @@ jobs:
         uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
         with:
           disable-sudo: true
-          egress-policy: block
+          egress-policy: audit
           allowed-endpoints: >
             api.azul.com:443
             api.github.com:443
@@ -114,8 +118,8 @@ jobs:
       - name: "Setup: JVM"
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
         with:
-          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '21' }}
-          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '24' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm' }}
       - name: "Setup: Elide"
         uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
       - name: "Setup: Gradle"
@@ -133,6 +137,22 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: "Build: Gradle"
         run: ./gradlew --scan build test check
+      - name: "Report: Tests (GHA)"
+        uses: elide-tools/action-junit-report@d8d34855fefcfd2a15b5005b4cca125da5b41c8c
+        if: success() || failure() # always run even if the previous step fails
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+      - name: "Report: Tests (Codecov)"
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@47f89e9acb64b76debcd5ea40642d25a4adced9f # v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: "Report: Coverage (Codecov)"
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        with:
+          files: ./*/build/reports/kover/report.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
       - name: "Artifact: Maven Repository"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

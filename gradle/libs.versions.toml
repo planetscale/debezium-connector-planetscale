@@ -6,25 +6,30 @@
 #
 
 [versions]
+bytebuddy = "1.17.6"
 commons-math3 = "3.6.1"
+detekt = "1.23.8"
+googleJavaFormat = "1.28.0"
+grpc = "1.67.1"
 guava = "33.4.8-jre"
 junit-jupiter-engine = "5.13.3"
-bytebuddy = "1.17.6"
-shadow = "8.3.8"
-spdx = "0.9.0"
-kotlin = "2.2.0"
-vitess-client = "22.0.1"
-grpc = "1.67.1"
 kafka-connect-api = "3.9.0"
-sigstore = "1.3.0"
-testlogger = "4.0.0"
-testcontainers = "1.21.3"
+kotlin = "2.2.0"
+kotlinx-abicheck = "0.18.1"
 kotlinx-atomicfu = "0.29.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.7.1"
 kotlinx-io = "0.8.0"
+kotlinx-kover = "0.9.1"
+ktfmt = "0.56"
+ktlint = "1.0.0"
+shadow = "8.3.8"
+sigstore = "1.3.0"
+spdx = "0.9.0"
 spotless = "7.2.1"
-detekt = "1.23.8"
+testcontainers = "1.21.3"
+testlogger = "4.0.0"
+vitess-client = "22.0.1"
 
 [libraries]
 bytebuddy = { module = "net.bytebuddy:byte-buddy", version.ref = "bytebuddy" }
@@ -33,13 +38,6 @@ guava = { module = "com.google.guava:guava", version.ref = "guava" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit-jupiter-engine" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
-plugin-kotlinx-atomicfu = { module = "org.jetbrains.kotlinx.atomicfu:org.jetbrains.kotlinx.atomicfu.gradle.plugin", version.ref = "kotlinx-atomicfu" }
-plugin-kotlin-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
-plugin-kotlin-powerAssert = { module = "org.jetbrains.kotlin.plugin.power-assert:org.jetbrains.kotlin.plugin.power-assert.gradle.plugin", version.ref = "kotlin" }
-plugin-bytebuddy = { module = "net.bytebuddy:byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
-plugin-testlogger = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testlogger" }
-plugin-detekt = { module = "io.gitlab.arturbosch.detekt:io.gitlab.arturbosch.detekt.gradle.plugin", version.ref = "detekt" }
-plugin-spotless = { module = "com.diffplug.spotless:com.diffplug.spotless.gradle.plugin", version.ref = "spotless" }
 vitess-grpc-client = { module = "io.vitess:vitess-grpc-client", version.ref = "vitess-client" }
 grpc-core = { module = "io.grpc:grpc-core", version.ref = "grpc" }
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
@@ -48,44 +46,62 @@ kafka-connect-api = { module = "org.apache.kafka:connect-api", version.ref = "ka
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+kotlinx-atomicfu = { group = "org.jetbrains.kotlinx", name = "atomicfu", version.ref = "kotlinx-atomicfu" }
+kotlinx-atomicfu-jvm = { group = "org.jetbrains.kotlinx", name = "atomicfu-jvm", version.ref = "kotlinx-atomicfu" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-jdk8 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8", version.ref = "kotlinx-coroutines" }
-kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-datetime" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-io = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-bytestring = { module = "org.jetbrains.kotlinx:kotlinx-io-bytestring", version.ref = "kotlinx-io" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 
+# Plugins.
+plugin-bytebuddy = { module = "net.bytebuddy:byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
+plugin-detekt = { module = "io.gitlab.arturbosch.detekt:io.gitlab.arturbosch.detekt.gradle.plugin", version.ref = "detekt" }
+plugin-detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
+plugin-detekt-rules-libraries = { module = "io.gitlab.arturbosch.detekt:detekt-rules-libraries", version.ref = "detekt" }
+plugin-kotlin-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+plugin-kotlin-atomicfu = { module = "org.jetbrains.kotlin.plugin.atomicfu:org.jetbrains.kotlin.plugin.atomicfu.gradle.plugin", version.ref = "kotlin" }
+plugin-kotlin-powerAssert = { module = "org.jetbrains.kotlin.plugin.power-assert:org.jetbrains.kotlin.plugin.power-assert.gradle.plugin", version.ref = "kotlin" }
+plugin-kotlinx-atomicfu = { module = "org.jetbrains.kotlinx.atomicfu:org.jetbrains.kotlinx.atomicfu.gradle.plugin", version.ref = "kotlinx-atomicfu" }
+plugin-kotlinx-kover = { module = "org.jetbrains.kotlinx.kover:org.jetbrains.kotlinx.kover.gradle.plugin", version.ref = "kotlinx-kover" }
+plugin-spotless = { module = "com.diffplug.spotless:com.diffplug.spotless.gradle.plugin", version.ref = "spotless" }
+plugin-testlogger = { module = "com.adarshr.test-logger:com.adarshr.test-logger.gradle.plugin", version.ref = "testlogger" }
+
 # Internal library references.
 planetscale-debezium = { module = "com.planetscale.labs:debezium-planetscale" }
 planetscale-debezium-facade = { module = "com.planetscale.labs:facade" }
-planetscale-debezium-transforms = { module = "com.planetscale.labs:transforms" }
 planetscale-debezium-transformer = { module = "com.planetscale.labs:transformer" }
+planetscale-debezium-transforms = { module = "com.planetscale.labs:transforms" }
 
 [plugins]
+bytebuddy = { id = "net.bytebuddy.byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-powerAssert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
-bytebuddy = { id = "net.bytebuddy.byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
-shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
-spdx = { id = "org.spdx.sbom", version.ref = "spdx" }
+kotlinx-abicheck = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "kotlinx-abicheck" }
+kotlinx-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "kotlinx-atomicfu" }
+kotlinx-kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kotlinx-kover" }
 planetscale-debezium = { id = "com.planetscale.debezium" }
 planetscale-debezium-build = { id = "com.planetscale.debezium.conventions" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 sigstore = { id = "dev.sigstore.sign", version.ref = "sigstore" }
-testlogger = { id = "com.adarshr.test-logger", version.ref = "testlogger" }
-kotlinx-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "kotlinx-atomicfu" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+spdx = { id = "org.spdx.sbom", version.ref = "spdx" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+testlogger = { id = "com.adarshr.test-logger", version.ref = "testlogger" }
 
 [bundles]
+bytebuddy = [
+  "bytebuddy"
+]
+
 kotlinx = [
+  "kotlinx-atomicfu-jvm",
   "kotlinx-coroutines-core",
   "kotlinx-coroutines-jdk8",
   "kotlinx-datetime",
   "kotlinx-io",
   "kotlinx-io-bytestring",
-]
-
-bytebuddy = [
-  "bytebuddy"
 ]
 
 vitess-client = [

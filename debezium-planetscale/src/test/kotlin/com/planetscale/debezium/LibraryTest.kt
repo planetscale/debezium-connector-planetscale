@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class LibraryTest {
-    @Test fun someLibraryMethodReturnsTrue() {
-        assertTrue(PlanetscaleDebezium.setup(), "someLibraryMethod should return 'true'")
-    }
+  @Test fun someLibraryMethodReturnsTrue() {
+    assertTrue(PlanetscaleDebezium.setup(), "someLibraryMethod should return 'true'")
+  }
 }

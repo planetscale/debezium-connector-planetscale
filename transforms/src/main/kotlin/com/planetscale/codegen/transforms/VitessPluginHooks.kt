@@ -29,7 +29,7 @@ class VitessPluginHooks : Plugin {
   override fun apply(
     builder: DynamicType.Builder<*>,
     typeDescription: TypeDescription,
-    classFileLocator: ClassFileLocator
+    classFileLocator: ClassFileLocator,
   ): DynamicType.Builder<*> = builder.apply {
     plugins.forEach { plugin ->
       plugin.apply(this, typeDescription, classFileLocator)

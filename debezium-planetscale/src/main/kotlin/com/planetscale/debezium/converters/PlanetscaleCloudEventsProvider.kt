@@ -8,5 +8,4 @@ package com.planetscale.debezium.converters
 
 import io.debezium.connector.vitess.converters.VitessCloudEventsProvider
 
-public class PlanetscaleCloudEventsProvider: VitessCloudEventsProvider() {
-}
+public class PlanetscaleCloudEventsProvider : VitessCloudEventsProvider()

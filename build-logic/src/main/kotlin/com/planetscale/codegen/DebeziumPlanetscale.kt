@@ -10,8 +10,8 @@ package com.planetscale.codegen
  *
  */
 object DebeziumPlanetscale {
-    /**
-     *
-     */
-    const val VERSION: String = "2.0.0"
+  /**
+   *
+   */
+  const val VERSION: String = "2.0.0"
 }

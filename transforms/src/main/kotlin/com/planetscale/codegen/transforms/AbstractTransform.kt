@@ -13,7 +13,7 @@ import net.bytebuddy.dynamic.DynamicType
 
 abstract class AbstractTransform : Plugin {
   override fun matches(target: TypeDescription): Boolean {
-    return true  // by default
+    return true // by default
   }
 
   override fun close() {
@@ -23,7 +23,7 @@ abstract class AbstractTransform : Plugin {
   override fun apply(
     builder: DynamicType.Builder<*>,
     typeDescription: TypeDescription,
-    classFileLocator: ClassFileLocator
+    classFileLocator: ClassFileLocator,
   ): DynamicType.Builder<*> = transform(
     builder,
   ).also {
@@ -31,6 +31,6 @@ abstract class AbstractTransform : Plugin {
   }
 
   open fun transform(builder: DynamicType.Builder<*>): DynamicType.Builder<*> {
-    return builder  // by default, no transformation
+    return builder // by default, no transformation
   }
 }

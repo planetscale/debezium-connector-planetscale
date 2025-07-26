@@ -9,19 +9,11 @@ package com.planetscale.debezium.channel
 import com.planetscale.debezium.PlanetscaleConstants
 import io.debezium.annotation.VisibleForTesting
 import io.debezium.connector.vitess.VitessConnectorConfig
-import io.grpc.CallOptions
-import io.grpc.Channel
-import io.grpc.ClientCall
-import io.grpc.ClientInterceptor
-import io.grpc.ForwardingClientCall
-import io.grpc.ManagedChannel
-import io.grpc.ManagedChannelBuilder
-import io.grpc.Metadata
-import io.grpc.MethodDescriptor
+import io.grpc.*
 import net.bytebuddy.implementation.bind.annotation.FieldValue
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
-import java.util.Base64
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 // Constants used for channel initialization and configuration.
@@ -30,7 +22,7 @@ private const val AUTHORIZATION_HEADER = "authorization"
 private const val BASIC_AUTH = "Basic"
 
 // Intercepts gRPC channel setup in order to add authorization headers and otherwise configure for use with Planetscale.
-@Suppress("unused") internal object PlanetscaleManagedChannel: ClientInterceptor {
+@Suppress("unused") internal object PlanetscaleManagedChannel : ClientInterceptor {
   private val authorizationHeader = Metadata.Key.of(AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER)
   private val logger by lazy { LoggerFactory.getLogger(PlanetscaleManagedChannel::class.java) }
 
@@ -51,18 +43,18 @@ private const val BASIC_AUTH = "Basic"
     port: Int?,
     maxMessageSize: Int,
   ): ManagedChannel = managedChannelBuilder(host, port, config)
-      .useTransportSecurity()
-      .maxInboundMessageSize(maxMessageSize)
-      .intercept(this)
-      .keepAliveTime(config.keepaliveInterval.toMillis(), TimeUnit.MILLISECONDS)
-      .build()
+    .useTransportSecurity()
+    .maxInboundMessageSize(maxMessageSize)
+    .intercept(this)
+    .keepAliveTime(config.keepaliveInterval.toMillis(), TimeUnit.MILLISECONDS)
+    .build()
 
   override fun <ReqT : Any?, RespT : Any?> interceptCall(
     method: MethodDescriptor<ReqT?, RespT?>,
     callOptions: CallOptions,
     next: Channel,
   ): ClientCall<ReqT?, RespT?> = object : ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(
-    next.newCall(method, callOptions)
+    next.newCall(method, callOptions),
   ) {
     override fun start(responseListener: Listener<RespT>, headers: Metadata) {
       val user = config.vtgateUsername
@@ -71,9 +63,11 @@ private const val BASIC_AUTH = "Basic"
       if (user.isNullOrBlank() || !passAvailable) {
         logger.warn("No credentials resolvable for Vitess adapter; Planetscale connection may fail")
         super.start(responseListener, headers)
-      } else PlanetscaleAuth.authorizationHeader(user, config.vtgatePassword.toCharArray()).let { header ->
-        headers.put(authorizationHeader, header)
-        super.start(responseListener, headers)
+      } else {
+        PlanetscaleAuth.authorizationHeader(user, config.vtgatePassword.toCharArray()).let { header ->
+          headers.put(authorizationHeader, header)
+          super.start(responseListener, headers)
+        }
       }
     }
   }

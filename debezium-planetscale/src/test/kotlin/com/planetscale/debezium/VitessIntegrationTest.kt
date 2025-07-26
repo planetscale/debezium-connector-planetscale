@@ -19,9 +19,9 @@ abstract class VitessIntegrationTest {
     private const val VITESS_LITE_DIGEST = "sha256:0d97735a1ccc297138aac90cf3f8919c3028b4392ec7d3bf0ca6163ecc02cd9d"
     private const val VITESS_LITE = "vitess/lite:mysql84@$VITESS_LITE_DIGEST"
     private val vitessPorts = arrayOf(
-      3306,  // mysql
-      15001,  // vtgate http
-      15999,  // vtgate grpc
+      3306, // mysql
+      15001, // vtgate http
+      15999, // vtgate grpc
     )
   }
 

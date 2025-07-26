@@ -22,7 +22,7 @@ plugins {
   id("org.jetbrains.kotlin.jvm") version "2.2.0" apply false
   id("com.gradle.enterprise") version ("3.16.2")
   id("com.gradle.common-custom-user-data-gradle-plugin") version ("2.1")
-  id("org.gradle.toolchains.foojay-resolver-convention") version ("0.10.0")
+  id("org.gradle.toolchains.foojay-resolver-convention") version ("1.0.0")
 }
 
 dependencyResolutionManagement {

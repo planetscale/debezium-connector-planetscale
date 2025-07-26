@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -61,11 +62,13 @@ jobs:
     needs: [triage]
     uses: ./.github/workflows/job.build.yml
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
       id-token: write # Needed for release uploads (SLSA).
+      checks: write # Needed for test result publishing.
     with:
       build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
 

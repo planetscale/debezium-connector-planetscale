@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>AnnotationOnSeparateLine:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel$@Suppress("unused") internal</ID>
+    <ID>Indentation:AbstractTransform.kt$AbstractTransform$ </ID>
+    <ID>Indentation:DebeziumVitessHello.kt$DebeziumVitessHello$ </ID>
+    <ID>Indentation:PlanetscaleAuthTest.kt$PlanetscaleAuthTest$ </ID>
+    <ID>Indentation:PlanetscaleConstants.kt$PlanetscaleConstants$ </ID>
+    <ID>Indentation:PlanetscaleManagedChannel.kt$PlanetscaleAuth$ </ID>
+    <ID>Indentation:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel$ </ID>
+    <ID>Indentation:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel.&lt;no name provided&gt;$ </ID>
+    <ID>Indentation:VitessHello.kt$VitessHello$ </ID>
+    <ID>Indentation:VitessManagedChannel.kt$VitessManagedChannel$ </ID>
+    <ID>Indentation:VitessPluginHooks.kt$VitessPluginHooks$ </ID>
+    <ID>LibraryEntitiesShouldNotBePublic:AbstractTransform.kt$AbstractTransform : Plugin</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:PlanetscaleAuthTest.kt$PlanetscaleAuthTest</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessHello.kt$VitessHello : AbstractTransform</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessManagedChannel.kt$VitessManagedChannel : AbstractTransform</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessPluginHooks.kt$VitessPluginHooks : Plugin</ID>
+    <ID>MagicNumber:PlanetscaleConstants.kt$PlanetscaleConstants$443</ID>
+    <ID>MayBeConst:PlanetscaleConstants.kt$PlanetscaleConstants$val HOST: String = "https://connect.psdb.cloud"</ID>
+    <ID>MayBeConst:PlanetscaleConstants.kt$PlanetscaleConstants$val PORT: Int = 443</ID>
+    <ID>MultiLineIfElse:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel.&lt;no name provided&gt;$PlanetscaleAuth.authorizationHeader(user, config.vtgatePassword.toCharArray()).let { header -&gt; headers.put(authorizationHeader, header) super.start(responseListener, headers) }</ID>
+    <ID>NoMultipleSpaces:AbstractTransform.kt$AbstractTransform$ </ID>
+    <ID>NoWildcardImports:PlanetscaleAuthTest.kt$import kotlin.test.*</ID>
+    <ID>SpacingAroundColon:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel$:</ID>
+    <ID>WildcardImport:PlanetscaleAuthTest.kt$import kotlin.test.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

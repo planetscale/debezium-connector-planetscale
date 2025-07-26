@@ -1,0 +1,14 @@
+public final class com/planetscale/debezium/PlanetscaleConnector : io/debezium/connector/vitess/VitessConnector {
+	public fun <init> ()V
+}
+
+public final class com/planetscale/debezium/PlanetscaleDebezium {
+	public static final field INSTANCE Lcom/planetscale/debezium/PlanetscaleDebezium;
+	public static final fun main ([Ljava/lang/String;)V
+	public final fun setup ()Z
+}
+
+public final class com/planetscale/debezium/converters/PlanetscaleCloudEventsProvider : io/debezium/connector/vitess/converters/VitessCloudEventsProvider {
+	public fun <init> ()V
+}
+
