@@ -6,6 +6,8 @@
  */
 package com.planetscale.conventions
 
+import com.adarshr.gradle.testlogger.TestLoggerExtension
+import com.adarshr.gradle.testlogger.theme.ThemeType
 import com.planetscale.PlanetscaleBuild
 import com.planetscale.PlanetscaleBuild.debeziumVersion
 import org.gradle.api.Plugin
@@ -16,6 +18,7 @@ import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.the
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 
@@ -28,6 +31,11 @@ private val unalignedDeps = sortedSetOf(
 private val meaningfulConfigurations = listOfNotNull(
   "runtimeClasspath",
   "compileClasspath",
+)
+
+// Plugins applied to all builds.
+private val stockPlugins = listOf(
+  "com.adarshr.test-logger",
 )
 
 @Suppress("unused") // used at build time
@@ -52,6 +60,9 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
   override fun apply(target: Project) {
     project = target
 
+    // configure stock plugins
+    stockPlugins.forEach { pluginId -> project.pluginManager.apply(pluginId) }
+
     // use consistent project coordinates and versioning
     project.group = PlanetscaleBuild.PACKAGE_GROUP
     project.version = debeziumVersion
@@ -62,6 +73,15 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
         isReproducibleFileOrder = true
         isPreserveFileTimestamps = false
       }
+    }
+
+    // configure test logging
+    project.the<TestLoggerExtension>().apply {
+      theme = ThemeType.MOCHA_PARALLEL
+      showPassed = true
+      showSkipped = true
+      showFailed = true
+      showStandardStreams = false
     }
 
     // lock compile and runtime configurations

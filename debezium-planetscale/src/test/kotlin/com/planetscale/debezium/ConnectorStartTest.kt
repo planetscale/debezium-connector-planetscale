@@ -6,6 +6,11 @@
  */
 package com.planetscale.debezium
 
-import io.debezium.connector.vitess.VitessConnector
+import kotlin.test.*
 
-public class PlanetscaleConnector : VitessConnector()
+class ConnectorStartTest : VitessIntegrationTest() {
+  @Test fun adapterIsConstructable() {
+    assertNotNull(container())
+    assertNotNull(connector())
+  }
+}

@@ -15,7 +15,8 @@ import net.bytebuddy.matcher.ElementMatchers
 class VitessManagedChannel : AbstractTransform() {
   override fun matches(target: TypeDescription): Boolean = target.simpleName == "VitessReplicationConnection"
 
-  override fun transform(builder: Builder<*>): Builder<*> = builder
-    .method(ElementMatchers.named("newChannel"))
-    .intercept(MethodDelegation.to(PlanetscaleManagedChannel::class.java))
+  override fun transform(builder: Builder<*>): Builder<*> = builder.apply {
+    method(ElementMatchers.named("newChannel"))
+      .intercept(MethodDelegation.to(PlanetscaleManagedChannel::class.java))
+  }
 }

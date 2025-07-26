@@ -20,6 +20,7 @@ plugins {
   signing
   `java-library`
   `maven-publish`
+  `jvm-test-suite`
   alias(libs.plugins.shadow)
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.spdx)
@@ -82,6 +83,7 @@ dependencies {
   api(debezium.core)
   api(debezium.embedded)
   runtimeOnly(libs.kafka.connect.api)
+
   api(libs.vitess.grpc.client) {
     // these exclusions come from the `pom.xml` for the vitess connector.
     exclude(group = "com.google.code.findbugs", module = "jsr305")
@@ -95,14 +97,22 @@ dependencies {
   // extra dependencies needed by the planetscale connector.
   api(libs.grpc.auth)
 
+  // kotlin and kotlin extensions.
+  api(kotlin("stdlib"))
+  implementation(libs.bundles.kotlinx)
+
   // internal configurations (packaged classes, transforms which are included within the final JAR).
   planetscale(libs.planetscale.debezium.transforms)
   connector(debezium.connectors.vitess)
   connector(debezium.connectors.mysql)
 
   // test dependencies.
+  testImplementation(platform(libs.testcontainers.bom))
+  testImplementation(libs.testcontainers.junit.jupiter)
   testImplementation(libs.kotlin.test.junit5)
+  testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
+  testImplementation(debezium.connectors.vitess)
   testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -143,7 +153,8 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   description = "Transform classes for use with Vitess plugin"
   source = layout.buildDirectory.dir("debezium/classes")
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
-  classPath.from(configurations.compileClasspath)
+  classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
+
   dependsOn(tasks.compileKotlin, debeziumClasses)
   transformation { plugin = VitessHello::class.java }
   transformation { plugin = VitessManagedChannel::class.java }

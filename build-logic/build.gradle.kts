@@ -39,7 +39,12 @@ kotlin {
 dependencies {
   implementation(gradleApi())
   implementation(libs.plugin.bytebuddy)
+  implementation(libs.plugin.detekt)
   implementation(libs.plugin.kotlin.jvm)
+  implementation(libs.plugin.kotlin.powerAssert)
+  implementation(libs.plugin.kotlinx.atomicfu)
+  implementation(libs.plugin.spotless)
+  implementation(libs.plugin.testlogger)
   implementation(files(libs::class.java.protectionDomain.codeSource.location))
   implementation(files(debezium::class.java.protectionDomain.codeSource.location))
 }
