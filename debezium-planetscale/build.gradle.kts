@@ -165,9 +165,7 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   source = layout.buildDirectory.dir("debezium/classes")
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
-
   dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
-
   // transformation { plugin = VitessManagedChannel::class.java }
 }
 
