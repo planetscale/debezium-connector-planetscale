@@ -6,11 +6,7 @@
 package io.debezium.connector.vitess.connection;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -349,11 +345,27 @@ public class VitessReplicationConnection implements ReplicationConnection {
     return stub;
   }
 
+  private String buildAuthHeaderValue() {
+    String user = config.getVtgateUsername();
+    String password = config.getVtgatePassword();
+    Objects.requireNonNull(user, "vtgate username must not be null");
+    Objects.requireNonNull(password, "vtgate password must not be null");
+    String preimage = user + ":" + password;
+    String encoded = Base64.getEncoder().encodeToString(preimage.getBytes());
+    String authHeader = "Basic " + encoded;
+    return authHeader;
+  }
+
   private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize) {
+    String authHeader = buildAuthHeaderValue();
+    Metadata headers = new Metadata();
+    headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), authHeader);
+
     ManagedChannel channel = ManagedChannelBuilder.forAddress(vtgateHost, vtgatePort)
             .useTransportSecurity()
             .maxInboundMessageSize(maxInboundMessageSize)
             .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS)
+            .intercept(MetadataUtils.newAttachHeadersInterceptor(headers))
             .build();
     return channel;
   }

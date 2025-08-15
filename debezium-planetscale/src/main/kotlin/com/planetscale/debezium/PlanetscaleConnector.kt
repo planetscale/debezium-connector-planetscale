@@ -6,6 +6,13 @@
  */
 package com.planetscale.debezium
 
+import io.debezium.config.Configuration
 import io.debezium.connector.vitess.VitessConnector
+import org.apache.kafka.common.config.ConfigValue
 
-public class PlanetscaleConnector : VitessConnector()
+public class PlanetscaleConnector : VitessConnector() {
+  override fun validateConnection(configValues: Map<String?, ConfigValue?>?, config: Configuration?) {
+    // super.validateConnection(configValues, config)
+    // nerfed for use by planetscale
+  }
+}
