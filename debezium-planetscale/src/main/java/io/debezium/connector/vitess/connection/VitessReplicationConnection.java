@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +24,6 @@ import io.debezium.connector.vitess.VitessMetadata;
 import io.debezium.connector.vitess.pipeline.txmetadata.ShardEpochMap;
 import io.debezium.util.Strings;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -361,13 +361,12 @@ public class VitessReplicationConnection implements ReplicationConnection {
     Metadata headers = new Metadata();
     headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), authHeader);
 
-    ManagedChannel channel = ManagedChannelBuilder.forAddress(vtgateHost, vtgatePort)
+    return NettyChannelBuilder.forAddress(vtgateHost, vtgatePort)
             .useTransportSecurity()
             .maxInboundMessageSize(maxInboundMessageSize)
             .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS)
             .intercept(MetadataUtils.newAttachHeadersInterceptor(headers))
             .build();
-    return channel;
   }
 
   /** Close the gRPC connection to VStream */

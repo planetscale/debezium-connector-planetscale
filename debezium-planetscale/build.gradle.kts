@@ -7,7 +7,6 @@
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
 import com.planetscale.PlanetscaleBuild
-import com.planetscale.codegen.transforms.VitessManagedChannel
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
@@ -38,6 +37,11 @@ val enableSigning = findProperty("planetscale.release") == "true"
 val enableSigstore = findProperty("planetscale.sigstore") == "true"
 val planetscaleAdapter: Configuration by configurations.creating
 val debeziumConnectors: Configuration by configurations.creating
+
+val kafkaConnect: Configuration by configurations.creating {
+  isCanBeResolved = true
+  extendsFrom(configurations.runtimeClasspath.get(), configurations.compileClasspath.get())
+}
 
 listOf(planetscaleAdapter, debeziumConnectors).forEach {
   it.resolutionStrategy.activateDependencyLocking()
@@ -96,6 +100,9 @@ dependencies {
 
   // extra dependencies needed by the planetscale connector.
   api(libs.grpc.auth)
+  api(libs.grpc.netty.shaded)
+  kafkaConnect(libs.netty.transport.epoll)
+  kafkaConnect(libs.grpc.netty.shaded)
 
   // kotlin and kotlin extensions.
   api(kotlin("stdlib"))
@@ -167,6 +174,74 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
   dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
   // transformation { plugin = VitessManagedChannel::class.java }
+}
+
+val connectRoot = layout.buildDirectory.dir("connect")
+val connectOut = layout.buildDirectory.dir("connect/pkg")
+val connectDistRoot = layout.buildDirectory.dir("connect/dist")
+
+// `doc/` directory includes `README.md` and `LICENSE.txt`
+val assembleConnectDoc by tasks.registering(Copy::class) {
+  from(layout.projectDirectory.dir("src/main/config")) {
+    include("README.md", "LICENSE.txt")
+  }
+  into(connectOut.get().dir("doc"))
+}
+
+// `lib/` directory includes the transformed vitess connector and all dependencies
+val assembleConnectLib by tasks.registering(Copy::class) {
+  from(kafkaConnect) {
+    exclude("debezium-connector-vitess-*.jar")  // packaged with final planetscale connector
+    exclude("netty-transport-native-unix-common*.jar")  // causes UDS compat issues
+  }
+  from(tasks.shadowJar)
+  into(connectOut.get().dir("lib"))
+}
+
+// connect root directory includes the transformed vitess connector and all dependencies
+val assembleConnectLayout by tasks.registering(Copy::class) {
+  from(layout.projectDirectory.dir("src/main/config")) {
+    include("manifest.json")
+  }
+  into(connectOut.get())
+
+  dependsOn(
+    assembleConnectDoc,
+    assembleConnectLib,
+  )
+}
+
+val assembleConnectDist by tasks.registering(Copy::class) {
+  from(connectOut.get())
+  into(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-${version}"))
+
+  dependsOn(
+    assembleConnectDoc,
+    assembleConnectLib,
+    assembleConnectLayout,
+  )
+}
+
+val assembleConnectZip by tasks.registering(Zip::class) {
+  group = "build"
+  description = "Assemble the connector distribution ZIP for Kafka Connect"
+  archiveFileName.set("planetscale-debezium-connector-planetscale-${version}.zip")
+  destinationDirectory.set(connectDistRoot.get())
+  from(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-${version}"))
+  dependsOn(assembleConnectDist)
+}
+
+val connectDist by tasks.registering {
+  group = "build"
+  description = "Assemble the connector distribution for Kafka Connect"
+
+  dependsOn(
+    assembleConnectDoc,
+    assembleConnectLib,
+    assembleConnectLayout,
+    assembleConnectDist,
+    assembleConnectZip,
+  )
 }
 
 tasks {
@@ -253,6 +328,6 @@ tasks {
     dependsOn(shadowJar, spdxSbom)
   }
   build {
-    dependsOn(shadowJar, spdxSbom, publish)
+    dependsOn(shadowJar, spdxSbom, publish, connectDist)
   }
 }
