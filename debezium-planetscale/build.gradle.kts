@@ -7,7 +7,6 @@
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
 import com.planetscale.PlanetscaleBuild
-import com.planetscale.codegen.transforms.VitessHello
 import com.planetscale.codegen.transforms.VitessManagedChannel
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
@@ -147,6 +146,17 @@ val debeziumClasses by tasks.registering(Copy::class) {
   }
   into(layout.buildDirectory.dir("debezium/classes"))
   include("**/*.class")
+  exclude("**/VitessReplicationConnection*")  // fix: private `newChannel` override
+  finalizedBy(debeziumClassesPatched)
+}
+
+val debeziumClassesPatched by tasks.registering(Copy::class) {
+  group = "build"
+  description = "Copy patched Debezium classes to build directory"
+  from(layout.buildDirectory.dir("classes/java/main"))
+  into(layout.buildDirectory.dir("debezium/classes"))
+  include("**/*.class")
+  dependsOn(tasks.compileJava)
 }
 
 val transformVitess by tasks.registering(ByteBuddyTask::class) {
@@ -156,15 +166,16 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
 
-  dependsOn(tasks.compileKotlin, debeziumClasses)
-  transformation { plugin = VitessHello::class.java }
-  transformation { plugin = VitessManagedChannel::class.java }
+  dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
+
+  // transformation { plugin = VitessManagedChannel::class.java }
 }
 
 tasks {
   jar {
     from(transformVitess)
     dependsOn(transformVitess)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
 
   // Only enable signing when `planetscale.release` is set to true.

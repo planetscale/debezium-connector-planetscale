@@ -12,3 +12,14 @@ public final class com/planetscale/debezium/converters/PlanetscaleCloudEventsPro
 	public fun <init> ()V
 }
 
+public class io/debezium/connector/vitess/connection/VitessReplicationConnection : io/debezium/connector/vitess/connection/ReplicationConnection {
+	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/connector/vitess/VitessDatabaseSchema;)V
+	public static fun buildVgtid (Ljava/lang/String;Ljava/util/List;Ljava/util/List;)Lio/debezium/connector/vitess/Vgtid;
+	public fun close ()V
+	public static fun defaultShardEpochMap (Lio/debezium/connector/vitess/VitessConnectorConfig;)Lio/debezium/connector/vitess/pipeline/txmetadata/ShardEpochMap;
+	public static fun defaultVgtid (Lio/debezium/connector/vitess/VitessConnectorConfig;)Lio/debezium/connector/vitess/Vgtid;
+	public fun execute (Ljava/lang/String;)Lio/vitess/proto/Vtgate$ExecuteResponse;
+	public fun execute (Ljava/lang/String;Ljava/lang/String;)Lio/vitess/proto/Vtgate$ExecuteResponse;
+	public fun startStreaming (Lio/debezium/connector/vitess/Vgtid;Lio/debezium/connector/vitess/connection/ReplicationMessageProcessor;Ljava/util/concurrent/atomic/AtomicReference;)V
+}
+
