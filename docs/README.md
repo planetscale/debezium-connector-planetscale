@@ -147,22 +147,22 @@ debezium-planetscale/build/m2
     └── planetscale
         └── labs
             └── debezium-planetscale
-                ├── 3.1.2.Final
-                │   ├── debezium-planetscale-3.1.2.Final.jar
-                │   ├── debezium-planetscale-3.1.2.Final.jar.md5
-                │   ├── debezium-planetscale-3.1.2.Final.jar.sha1
-                │   ├── debezium-planetscale-3.1.2.Final.jar.sha256
-                │   ├── debezium-planetscale-3.1.2.Final.jar.sha512
-                │   ├── debezium-planetscale-3.1.2.Final.module
-                │   ├── debezium-planetscale-3.1.2.Final.module.md5
-                │   ├── debezium-planetscale-3.1.2.Final.module.sha1
-                │   ├── debezium-planetscale-3.1.2.Final.module.sha256
-                │   ├── debezium-planetscale-3.1.2.Final.module.sha512
-                │   ├── debezium-planetscale-3.1.2.Final.pom
-                │   ├── debezium-planetscale-3.1.2.Final.pom.md5
-                │   ├── debezium-planetscale-3.1.2.Final.pom.sha1
-                │   ├── debezium-planetscale-3.1.2.Final.pom.sha256
-                │   └── debezium-planetscale-3.1.2.Final.pom.sha512
+                ├── 3.2.1.Final
+                │   ├── debezium-planetscale-3.2.1.Final.jar
+                │   ├── debezium-planetscale-3.2.1.Final.jar.md5
+                │   ├── debezium-planetscale-3.2.1.Final.jar.sha1
+                │   ├── debezium-planetscale-3.2.1.Final.jar.sha256
+                │   ├── debezium-planetscale-3.2.1.Final.jar.sha512
+                │   ├── debezium-planetscale-3.2.1.Final.module
+                │   ├── debezium-planetscale-3.2.1.Final.module.md5
+                │   ├── debezium-planetscale-3.2.1.Final.module.sha1
+                │   ├── debezium-planetscale-3.2.1.Final.module.sha256
+                │   ├── debezium-planetscale-3.2.1.Final.module.sha512
+                │   ├── debezium-planetscale-3.2.1.Final.pom
+                │   ├── debezium-planetscale-3.2.1.Final.pom.md5
+                │   ├── debezium-planetscale-3.2.1.Final.pom.sha1
+                │   ├── debezium-planetscale-3.2.1.Final.pom.sha256
+                │   └── debezium-planetscale-3.2.1.Final.pom.sha512
                 ├── maven-metadata.xml
                 ├── maven-metadata.xml.md5
                 ├── maven-metadata.xml.sha1

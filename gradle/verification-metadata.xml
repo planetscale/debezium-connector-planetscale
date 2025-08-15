@@ -15,6 +15,7 @@
          <trust group="org.hamcrest" />
          <trust group="org.checkerframework" />
          <trust group="io.perfmark" />
+         <trust group="org.apache.kafka" />
       </trusted-artifacts>
       <ignored-keys>
          <ignored-key id="02216ED811210DAA" reason="Key couldn't be downloaded from any key server"/>
