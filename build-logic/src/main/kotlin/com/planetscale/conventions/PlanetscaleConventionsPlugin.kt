@@ -30,6 +30,7 @@ import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.exclude
 import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.repositories
 import org.gradle.kotlin.dsl.the
@@ -40,7 +41,7 @@ import java.nio.file.Path
 import kotlin.io.path.name
 
 // Runtime JVM target.
-private const val JVM_TARGET = "21"
+private const val JVM_TARGET = "17"
 private const val JVM_TOOLCHAIN = "24"
 private const val JVM_TOOLCHAIN_VENDOR = "Oracle"
 
@@ -109,6 +110,21 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
   // Version of Debezium to build upon, and our own version.
   val debeziumVersion: String by lazy {
     project.findProperty(DEBEZIUM_VERSION_PROPERTY) as? String ?: project.debeziumVersion()
+  }
+
+  // Pinned gRPC version to use.
+  val grpcVersion: String by lazy {
+    libs.versions.grpc.get()
+  }
+
+  // Pinned Netty version to use.
+  val nettyVersion: String by lazy {
+    libs.versions.netty.get()
+  }
+
+  // Pinned TCNative version to use.
+  val tcnativeVersion: String by lazy {
+    libs.versions.tcnative.get()
   }
 
   override fun apply(target: Project) {
@@ -216,10 +232,25 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // use a consistent version of debezium throughout
     target.configurations.all {
+      // not supported at `1.56.x`, remove when supported in upstream Debezium version
+      exclude(group = "io.grpc", module = "grpc-inprocess")
+
       resolutionStrategy.eachDependency {
         if (requested.group == "io.debezium" && requested.name !in unalignedDeps) {
           useVersion(debeziumVersion)
           because("Pinned upstream version of Debezium")
+        }
+        if (requested.group == "io.grpc") {
+          useVersion(grpcVersion)
+          because("Pinned for compatibility to Debezium's effective version")
+        }
+        if (requested.group == "io.netty") {
+          if ("tcnative" in requested.module.name) {
+            useVersion(tcnativeVersion)
+          } else {
+            useVersion(nettyVersion)
+          }
+          because("Pinned for compatibility to Debezium's effective version")
         }
       }
     }
