@@ -14,7 +14,6 @@ import net.bytebuddy.dynamic.DynamicType
 @Suppress("unused")
 class VitessPluginHooks : Plugin {
   private val plugins: List<Plugin> = listOf(
-    VitessHello(),
     VitessManagedChannel(),
   )
 

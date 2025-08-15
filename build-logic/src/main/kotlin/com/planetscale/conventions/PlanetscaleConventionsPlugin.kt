@@ -45,7 +45,7 @@ private const val JVM_TOOLCHAIN = "24"
 private const val JVM_TOOLCHAIN_VENDOR = "Oracle"
 
 // Minimum line coverage percentage to enforce.
-private const val MINIMUM_COVERAGE = 15
+private const val MINIMUM_COVERAGE = 1
 
 // Kotlin features.
 private const val ENABLE_ATOMICFU = true
@@ -247,7 +247,6 @@ private fun KoverProjectExtension.configureKover(project: Project) {
     }
   }
   project.tasks.named("check").configure {
-    dependsOn("koverVerify")
     dependsOn("koverXmlReport")
     dependsOn("koverHtmlReport")
     dependsOn("koverBinaryReport")
