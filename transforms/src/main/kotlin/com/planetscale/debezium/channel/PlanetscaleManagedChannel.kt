@@ -17,7 +17,7 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 // Constants used for channel initialization and configuration.
-private const val CONFIG_FIELD = "config"
+// private const val CONFIG_FIELD = "config"
 private const val AUTHORIZATION_HEADER = "authorization"
 private const val BASIC_AUTH = "Basic"
 
@@ -28,21 +28,20 @@ private const val BASIC_AUTH = "Basic"
 
   @JvmStatic private lateinit var config: VitessConnectorConfig
 
-  @JvmStatic private fun managedChannelBuilder(host: String?, port: Int?, config: VitessConnectorConfig) =
+  @JvmStatic private fun managedChannelBuilder(host: String?, port: Int?) =
     ManagedChannelBuilder.forAddress(
       host ?: PlanetscaleConstants.HOST,
       port ?: PlanetscaleConstants.PORT,
     ).also {
       // mount configuration for adapter (we use it later for authorization)
-      this.config = config
+      // this.config = config
     }
 
   @JvmStatic fun newChannel(
-    @FieldValue(CONFIG_FIELD) config: VitessConnectorConfig,
     host: String?,
     port: Int?,
     maxMessageSize: Int,
-  ): ManagedChannel = managedChannelBuilder(host, port, config)
+  ): ManagedChannel = managedChannelBuilder(host, port)
     .useTransportSecurity()
     .maxInboundMessageSize(maxMessageSize)
     .intercept(this)
