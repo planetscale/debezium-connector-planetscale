@@ -6,7 +6,7 @@
 #
 
 [versions]
-bytebuddy = "1.17.6"
+bytebuddy = "1.17.7"
 commons-math3 = "3.6.1"
 detekt = "1.23.8"
 googleJavaFormat = "1.28.0"
