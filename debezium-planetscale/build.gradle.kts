@@ -7,6 +7,9 @@
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
 import com.planetscale.PlanetscaleBuild
+import com.planetscale.codegen.transforms.VitessHello
+import com.planetscale.codegen.transforms.VitessManagedChannel
+import com.planetscale.codegen.transforms.VitessGeometry
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
@@ -173,7 +176,9 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
   dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
-  // transformation { plugin = VitessManagedChannel::class.java }
+  transformation { plugin = VitessHello::class.java }
+  transformation { plugin = VitessManagedChannel::class.java }
+  transformation { plugin = VitessGeometry::class.java }
 }
 
 val connectRoot = layout.buildDirectory.dir("connect")
@@ -242,6 +247,7 @@ val connectDist by tasks.registering {
     assembleConnectDist,
     assembleConnectZip,
   )
+}
 }
 
 tasks {
