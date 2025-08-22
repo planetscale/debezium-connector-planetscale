@@ -1,0 +1,21 @@
+{
+  "name": "planetscale-geometry-test-connector",
+  "config": {
+    "connector.class": "com.planetscale.debezium.PlanetscaleConnector",
+    "database.hostname": "YOUR_PLANETSCALE_HOST",
+    "database.port": "3306",
+    "database.user": "YOUR_USERNAME", 
+    "database.password": "YOUR_PASSWORD",
+    "vitess.keyspace": "geometry_test",
+    "vitess.tablet.type": "MASTER",
+    "vitess.vtctld.host": "YOUR_VTCTLD_HOST",
+    "vitess.vtctld.port": "15999",
+    "vitess.vtctld.user": "YOUR_VTCTLD_USER",
+    "vitess.vtctld.password": "YOUR_VTCTLD_PASSWORD",
+    "topic.prefix": "geometry-test",
+    "tasks.max": 1,
+    "table.include.list": "geometry_test.spatial_data",
+    "schema.history.internal.kafka.bootstrap.servers": "localhost:9092",
+    "schema.history.internal.kafka.topic": "geometry-test-schema-history"
+  }
+}

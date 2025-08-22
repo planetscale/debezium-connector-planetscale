@@ -1,6 +1,9 @@
 package com.planetscale.debezium.geometry
 
+import io.debezium.data.geometry.Geometry
 import net.bytebuddy.implementation.bind.annotation.*
+import org.apache.kafka.connect.data.Schema
+import org.apache.kafka.connect.data.SchemaBuilder
 import org.slf4j.LoggerFactory
 import java.sql.Types
 import java.util.concurrent.Callable
@@ -10,6 +13,10 @@ import java.util.concurrent.Callable
  * 
  * Intercepts calls to field type resolution methods and handles GEOMETRY types
  * (jdbcId = 1111) by delegating to MySQL's existing spatial data handling.
+ * 
+ * Creates proper Debezium schema structures that match MySQL connector output:
+ * - STRUCT with 'srid' (INT32) and 'wkb' (BYTES) fields
+ * - Semantic type: io.debezium.data.geometry.Geometry
  */
 object GeometryTypeHandler {
   private val logger = LoggerFactory.getLogger(GeometryTypeHandler::class.java)
@@ -33,7 +40,7 @@ object GeometryTypeHandler {
       val isGeometryType = detectGeometryType(args)
       
       if (isGeometryType) {
-        logger.debug("Handling GEOMETRY type field")
+        logger.debug("Handling GEOMETRY type field - creating proper schema")
         handleGeometryField(args)
       } else {
         // For non-GEOMETRY types, call the original method
@@ -85,34 +92,80 @@ object GeometryTypeHandler {
   }
 
   /**
-   * Handles a GEOMETRY field by creating appropriate schema and value mappings.
+   * Handles a GEOMETRY field by creating the proper Debezium schema structure.
    * 
-   * This follows the same pattern as MySQL connector's spatial support:
-   * - GEOMETRY types map to STRUCT with 'srid' (INT32) and 'wkb' (BYTES) fields
-   * - Uses semantic type io.debezium.data.geometry.Geometry
+   * This follows the exact same pattern as MySQL connector's spatial support:
+   * - Creates STRUCT schema with 'srid' (INT32) and 'wkb' (BYTES) fields
+   * - Sets semantic type to io.debezium.data.geometry.Geometry
+   * - Returns a schema that matches MySQL connector output exactly
    */
   private fun handleGeometryField(args: Array<Any>): Any {
-    logger.info("Creating GEOMETRY field mapping for spatial data")
+    logger.info("Creating GEOMETRY field schema with SRID and WKB structure")
     
-    // For now, return a basic success indicator
-    // In a full implementation, this would create the proper Debezium schema
-    // using io.debezium.data.geometry.Geometry and SchemaBuilder
-    
-    // This is a placeholder - the actual implementation would need to:
-    // 1. Create a STRUCT schema with 'srid' and 'wkb' fields
-    // 2. Set semantic type to io.debezium.data.geometry.Geometry  
-    // 3. Return the appropriate field descriptor/mapping
-    
-    return createGeometryFieldDescriptor()
+    return try {
+      createGeometrySchema()
+    } catch (e: Exception) {
+      logger.error("Failed to create GEOMETRY schema", e)
+      // Return a basic schema as fallback
+      createFallbackSchema()
+    }
   }
 
   /**
-   * Creates a field descriptor for GEOMETRY types.
-   * This is a placeholder for the actual implementation.
+   * Creates the proper Debezium GEOMETRY schema structure.
+   * 
+   * This creates a STRUCT schema with:
+   * - Field 'srid': INT32 (Spatial Reference System Identifier)  
+   * - Field 'wkb': BYTES (Well-Known Binary representation)
+   * - Schema name: io.debezium.data.geometry.Geometry
+   * 
+   * This matches exactly what the MySQL connector produces.
    */
-  private fun createGeometryFieldDescriptor(): Any {
-    // Placeholder implementation
-    // Would need to integrate with Debezium's actual field descriptor classes
-    return "GEOMETRY_FIELD_HANDLED" // Temporary placeholder
+  private fun createGeometrySchema(): Schema {
+    logger.debug("Building GEOMETRY schema with SRID and WKB fields")
+    
+    return SchemaBuilder.struct()
+      .name(Geometry.LOGICAL_NAME) // Uses "io.debezium.data.geometry.Geometry"
+      .field("srid", Schema.OPTIONAL_INT32_SCHEMA)
+      .field("wkb", Schema.OPTIONAL_BYTES_SCHEMA)
+      .optional()
+      .build()
+  }
+
+  /**
+   * Creates a fallback schema if the main geometry schema creation fails.
+   */
+  private fun createFallbackSchema(): Schema {
+    logger.warn("Using fallback BYTES schema for GEOMETRY field")
+    return Schema.OPTIONAL_BYTES_SCHEMA
+  }
+
+  /**
+   * Value converter for GEOMETRY data.
+   * 
+   * This would convert spatial data from MySQL format to the Debezium structure.
+   * For now, this is a placeholder that would need to integrate with
+   * MySQL's existing BinlogGeometry class.
+   */
+  fun convertGeometryValue(geometryData: Any?): Any? {
+    if (geometryData == null) return null
+    
+    return try {
+      // TODO: Integrate with io.debezium.connector.binlog.BinlogGeometry
+      // to properly parse and convert spatial data to SRID + WKB structure
+      
+      // Placeholder structure matching MySQL connector output
+      mapOf(
+        "srid" to 0, // Default SRID
+        "wkb" to when (geometryData) {
+          is ByteArray -> geometryData
+          is String -> geometryData.toByteArray()
+          else -> geometryData.toString().toByteArray()
+        }
+      )
+    } catch (e: Exception) {
+      logger.warn("Failed to convert GEOMETRY value", e)
+      null
+    }
   }
 }
