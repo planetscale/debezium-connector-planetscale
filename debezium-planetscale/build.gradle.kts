@@ -248,7 +248,6 @@ val connectDist by tasks.registering {
     assembleConnectZip,
   )
 }
-}
 
 tasks {
   jar {

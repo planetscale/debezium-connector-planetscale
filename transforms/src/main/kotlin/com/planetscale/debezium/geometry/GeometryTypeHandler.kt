@@ -9,6 +9,11 @@ import java.sql.Types
 import java.util.concurrent.Callable
 
 /**
+ * Exception thrown when GEOMETRY processing fails.
+ */
+internal class GeometryProcessingException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+
+/**
  * Handler for GEOMETRY and spatial data types in Vitess streams.
  * 
  * Intercepts calls to field type resolution methods and handles GEOMETRY types
@@ -20,6 +25,15 @@ import java.util.concurrent.Callable
  */
 object GeometryTypeHandler {
   private val logger = LoggerFactory.getLogger(GeometryTypeHandler::class.java)
+  
+  private const val SRID_BYTES = 4
+  private const val HEX_RADIX = 16
+  private const val BYTE_MASK = 0xFF
+  private const val BYTE_SHIFT_8 = 8
+  private const val BYTE_SHIFT_16 = 16  
+  private const val BYTE_SHIFT_24 = 24
+  private const val HEX_CHARS_PER_BYTE = 2
+  private const val SRID_BYTE_3 = 3
 
   /**
    * Intercepts field type resolution and handles GEOMETRY types specially.
@@ -40,15 +54,15 @@ object GeometryTypeHandler {
       val isGeometryType = detectGeometryType(args)
       
       if (isGeometryType) {
-        logger.debug("Handling GEOMETRY type field - creating proper schema")
+        logger.info("Intercepted GEOMETRY field type resolution - creating proper Debezium schema")
         handleGeometryField(args)
       } else {
         // For non-GEOMETRY types, call the original method
         callable.call()
       }
     } catch (e: Exception) {
-      logger.warn("Error handling field type, delegating to original method", e)
-      callable.call()
+      logger.error("Error in GEOMETRY type handling - field resolution will fail", e)
+      throw GeometryProcessingException("Failed to handle GEOMETRY field type resolution", e)
     }
   }
 
@@ -99,16 +113,11 @@ object GeometryTypeHandler {
    * - Sets semantic type to io.debezium.data.geometry.Geometry
    * - Returns a schema that matches MySQL connector output exactly
    */
-  private fun handleGeometryField(args: Array<Any>): Any {
+  private fun handleGeometryField(@Suppress("UNUSED_PARAMETER") args: Array<Any>): Any {
     logger.info("Creating GEOMETRY field schema with SRID and WKB structure")
     
-    return try {
-      createGeometrySchema()
-    } catch (e: Exception) {
-      logger.error("Failed to create GEOMETRY schema", e)
-      // Return a basic schema as fallback
-      createFallbackSchema()
-    }
+    // Always create the proper geometry schema - no fallbacks that would break compatibility
+    return createGeometrySchema()
   }
 
   /**
@@ -132,40 +141,90 @@ object GeometryTypeHandler {
       .build()
   }
 
-  /**
-   * Creates a fallback schema if the main geometry schema creation fails.
-   */
-  private fun createFallbackSchema(): Schema {
-    logger.warn("Using fallback BYTES schema for GEOMETRY field")
-    return Schema.OPTIONAL_BYTES_SCHEMA
-  }
 
   /**
-   * Value converter for GEOMETRY data.
+   * Value converter for GEOMETRY data from MySQL/Vitess format to Debezium structure.
    * 
-   * This would convert spatial data from MySQL format to the Debezium structure.
-   * For now, this is a placeholder that would need to integrate with
-   * MySQL's existing BinlogGeometry class.
+   * This converts spatial data from MySQL's internal format (4-byte SRID + WKB) 
+   * to the proper Debezium STRUCT format with separate 'srid' and 'wkb' fields.
+   * 
+   * Follows the same pattern as MySQL connector's geometry handling.
    */
   fun convertGeometryValue(geometryData: Any?): Any? {
-    if (geometryData == null) return null
-    
-    return try {
-      // TODO: Integrate with io.debezium.connector.binlog.BinlogGeometry
-      // to properly parse and convert spatial data to SRID + WKB structure
-      
-      // Placeholder structure matching MySQL connector output
-      mapOf(
-        "srid" to 0, // Default SRID
-        "wkb" to when (geometryData) {
-          is ByteArray -> geometryData
-          is String -> geometryData.toByteArray()
-          else -> geometryData.toString().toByteArray()
-        }
-      )
-    } catch (e: Exception) {
-      logger.warn("Failed to convert GEOMETRY value", e)
-      null
+    return when {
+      geometryData == null -> null
+      else -> try {
+        val geometryBytes = extractGeometryBytes(geometryData)
+          ?: throw IllegalArgumentException("Cannot extract bytes from geometry data")
+        
+        // Parse MySQL's internal geometry format: 4 bytes SRID + WKB data
+        val (srid, wkb) = parseMySqlGeometry(geometryBytes)
+        
+        // Return in Debezium's standard format
+        mapOf(
+          "srid" to srid,
+          "wkb" to wkb
+        )
+      } catch (e: Exception) {
+        logger.error("Failed to convert GEOMETRY value to Debezium format", e)
+        throw GeometryProcessingException("GEOMETRY value conversion failed", e)
+      }
     }
+  }
+  
+  /**
+   * Extracts geometry bytes from various input formats.
+   */
+  private fun extractGeometryBytes(geometryData: Any): ByteArray? {
+    return when (geometryData) {
+      is ByteArray -> geometryData
+      // Handle hex-encoded geometry strings from Vitess
+      is String -> {
+        if (geometryData.startsWith("0x") || geometryData.startsWith("\\x")) {
+          hexStringToByteArray(geometryData.removePrefix("0x").removePrefix("\\x"))
+        } else {
+          geometryData.toByteArray()
+        }
+      }
+      else -> {
+        logger.warn("Unexpected geometry data type: ${geometryData::class.simpleName}")
+        null
+      }
+    }
+  }
+  
+  /**
+   * Parses MySQL's internal geometry format: 4-byte little-endian SRID + WKB data.
+   * This follows the same format that MySQL uses in its binlog for GEOMETRY columns.
+   */
+  private fun parseMySqlGeometry(geometryBytes: ByteArray): Pair<Int, ByteArray> {
+    require(geometryBytes.size >= SRID_BYTES) { 
+      "Geometry data too short - expected at least $SRID_BYTES bytes for SRID" 
+    }
+    
+    // First 4 bytes are SRID in little-endian format
+    val srid = (geometryBytes[0].toInt() and BYTE_MASK) or
+               ((geometryBytes[1].toInt() and BYTE_MASK) shl BYTE_SHIFT_8) or
+               ((geometryBytes[2].toInt() and BYTE_MASK) shl BYTE_SHIFT_16) or
+               ((geometryBytes[SRID_BYTE_3].toInt() and BYTE_MASK) shl BYTE_SHIFT_24)
+    
+    // Remaining bytes are the WKB (Well-Known Binary) data
+    val wkb = geometryBytes.sliceArray(SRID_BYTES until geometryBytes.size)
+    
+    logger.debug("Parsed MySQL geometry: SRID=$srid, WKB length=${wkb.size}")
+    
+    return Pair(srid, wkb)
+  }
+  
+  /**
+   * Converts hex string to byte array for parsing hex-encoded geometry data from Vitess.
+   */
+  private fun hexStringToByteArray(hex: String): ByteArray {
+    val cleanHex = hex.replace(" ", "").replace("-", "")
+    require(cleanHex.length % HEX_CHARS_PER_BYTE == 0) { "Hex string must have even length" }
+    
+    return cleanHex.chunked(HEX_CHARS_PER_BYTE)
+      .map { it.toInt(HEX_RADIX).toByte() }
+      .toByteArray()
   }
 }

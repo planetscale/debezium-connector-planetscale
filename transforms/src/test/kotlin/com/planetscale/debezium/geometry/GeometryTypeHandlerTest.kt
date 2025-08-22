@@ -6,7 +6,7 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import java.sql.Types
 import kotlin.test.*
 
-class GeometryTypeHandlerTest {
+internal class GeometryTypeHandlerTest {
 
   @Test
   fun `should handle GEOMETRY type without throwing exception`() {
@@ -113,25 +113,78 @@ class GeometryTypeHandlerTest {
 
   @Test
   fun `should convert geometry values to proper structure`() {
-    // Test the value conversion functionality
-    val testCases = mapOf(
-      "POINT(1 2)" to true,
-      byteArrayOf(0x01, 0x01) to true,
-      null to false
+    // Test with valid MySQL geometry format: SRID (4 bytes little-endian) + WKB data
+    val srid = 4326  // WGS84
+    val wkbData = byteArrayOf(0x01, 0x01, 0x00, 0x00, 0x00) // Simple POINT WKB
+    
+    // Create MySQL format: SRID (little-endian) + WKB
+    val mysqlGeometry = byteArrayOf(
+      (srid and 0xFF).toByte(),
+      ((srid shr 8) and 0xFF).toByte(), 
+      ((srid shr 16) and 0xFF).toByte(),
+      ((srid shr 24) and 0xFF).toByte()
+    ) + wkbData
+    
+    val result = GeometryTypeHandler.convertGeometryValue(mysqlGeometry)
+    assertNotNull(result, "Conversion should succeed for valid MySQL geometry")
+    
+    @Suppress("UNCHECKED_CAST")
+    val structValue = result as Map<String, Any>
+    
+    assertTrue(structValue.containsKey("srid"), "Result should contain SRID")
+    assertTrue(structValue.containsKey("wkb"), "Result should contain WKB")
+    
+    assertEquals(srid, structValue["srid"], "SRID should be correctly parsed")
+    assertContentEquals(wkbData, structValue["wkb"] as ByteArray, "WKB should be correctly extracted")
+  }
+  
+  @Test
+  fun `should handle hex-encoded geometry strings`() {
+    // Test hex string conversion from Vitess
+    val hexGeometry = "0xE6100000010100000000000000000000000000000000000000"
+    
+    val result = GeometryTypeHandler.convertGeometryValue(hexGeometry)
+    assertNotNull(result, "Should handle hex-encoded geometry")
+    
+    @Suppress("UNCHECKED_CAST") 
+    val structValue = result as Map<String, Any>
+    assertTrue(structValue.containsKey("srid"), "Should extract SRID from hex")
+    assertTrue(structValue.containsKey("wkb"), "Should extract WKB from hex")
+  }
+  
+  @Test
+  fun `should handle null geometry values`() {
+    val result = GeometryTypeHandler.convertGeometryValue(null)
+    assertNull(result, "Should return null for null input")
+  }
+  
+  @Test
+  fun `should fail fast on invalid geometry data`() {
+    // Test with too-short byte array (less than 4 bytes for SRID)
+    val invalidGeometry = byteArrayOf(0x01, 0x02)
+    
+    assertFailsWith<GeometryProcessingException>("Should fail fast on invalid geometry data") {
+      GeometryTypeHandler.convertGeometryValue(invalidGeometry)
+    }
+  }
+  
+  @Test
+  fun `should handle various hex string formats`() {
+    val testHexFormats = listOf(
+      "0x12345678ABCDEF",  // 0x prefix
+      "\\x12345678ABCDEF", // \x prefix  
+      "12345678ABCDEF"     // No prefix (fallback to raw bytes)
     )
     
-    testCases.forEach { (input, shouldSucceed) ->
-      if (shouldSucceed) {
-        val result = GeometryTypeHandler.convertGeometryValue(input)
-        assertNotNull(result, "Conversion should succeed for valid input")
-        
-        @Suppress("UNCHECKED_CAST")
-        val structValue = result as Map<String, Any>
-        assertTrue(structValue.containsKey("srid"), "Result should contain SRID")
-        assertTrue(structValue.containsKey("wkb"), "Result should contain WKB")
-      } else {
-        val result = GeometryTypeHandler.convertGeometryValue(input)
-        assertNull(result, "Conversion should return null for null input")
+    testHexFormats.forEach { hexString ->
+      assertDoesNotThrow("Should handle hex format: $hexString") {
+        // This will fail due to invalid geometry structure, but hex parsing should work
+        try {
+          GeometryTypeHandler.convertGeometryValue(hexString)
+        } catch (e: GeometryProcessingException) {
+          // Expected - the hex data isn't valid geometry, but hex parsing should work
+          assertTrue(e.message?.contains("Geometry data too short") == true)
+        }
       }
     }
   }

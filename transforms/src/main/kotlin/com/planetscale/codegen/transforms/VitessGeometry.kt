@@ -8,16 +8,21 @@ import net.bytebuddy.matcher.ElementMatchers
 
 /**
  * ByteBuddy transform that adds GEOMETRY/spatial data type support to the Vitess connector
- * by intercepting field type resolution and delegating GEOMETRY types to MySQL's spatial handling.
+ * by intercepting specific field type resolution methods that convert VitessType to JDBC types.
+ * 
+ * This targets the exact method that throws "Cannot resolve JDBC type from VStream field"
+ * errors when encountering GEOMETRY types with jdbcId=1111 (Types.OTHER).
  */
-class VitessGeometry : AbstractTransform() {
+internal class VitessGeometry : AbstractTransform() {
   override fun matches(target: TypeDescription): Boolean = 
+    // Target the specific decoder that handles VStream field type resolution
     target.simpleName == "VStreamOutputMessageDecoder" ||
+    // Also target any classes that handle VitessType to JDBC type conversion
     target.simpleName.contains("VitessType") ||
-    target.simpleName.contains("FieldType")
+    target.simpleName.contains("ColumnDefinition")
 
-  override fun transform(builder: Builder<*>): Builder<*> = builder
-    // Intercept methods that handle JDBC type resolution for VStream fields
-    .method(ElementMatchers.nameContains("decode"))
-    .intercept(MethodDelegation.to(GeometryTypeHandler::class.java))
+  override fun transform(builder: Builder<*>): Builder<*> = builder.apply {
+    method(ElementMatchers.nameContains("decode"))
+      .intercept(MethodDelegation.to(GeometryTypeHandler::class.java))
+  }
 }
