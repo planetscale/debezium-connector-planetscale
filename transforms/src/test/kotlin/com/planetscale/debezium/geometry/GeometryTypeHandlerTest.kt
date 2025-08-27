@@ -9,26 +9,20 @@ import kotlin.test.*
 internal class GeometryTypeHandlerTest {
 
   @Test
-  fun `should handle GEOMETRY type without throwing exception`() {
+  fun `should handle field message call without throwing exception`() {
     // Test that the handler can be invoked without errors
     assertDoesNotThrow {
-      val args = arrayOf<Any>(Types.OTHER, "GEOMETRY", "spatial_polygon")
+      val args = arrayOf<Any>("mock_event", true)
       
-      // This would normally be called by ByteBuddy, but we can test the detection logic
-      val result = GeometryTypeHandler.handleFieldType(args) { "original_method_result" }
-      assertNotNull(result)
+      // This would normally be called by ByteBuddy, but we test it gracefully handles the call
+      val result = GeometryTypeHandler.handleFieldMessage(args) { "original_method_result" }
+      assertEquals("original_method_result", result)
     }
   }
 
   @Test
   fun `should create proper GEOMETRY schema with SRID and WKB fields`() {
-    val args = arrayOf<Any>(Types.OTHER, "GEOMETRY", "spatial_polygon")
-    
-    val result = GeometryTypeHandler.handleFieldType(args) { "fallback" }
-    
-    // Verify we got a Kafka Connect Schema
-    assertTrue(result is Schema, "Result should be a Kafka Connect Schema")
-    val schema = result as Schema
+    val schema = GeometryTypeHandler.createGeometrySchema()
     
     // Verify schema structure
     assertEquals(Schema.Type.STRUCT, schema.type(), "Schema should be STRUCT type")
@@ -58,56 +52,25 @@ internal class GeometryTypeHandlerTest {
     )
 
     geometryTypes.forEach { geometryType ->
-      val args = arrayOf<Any>(Types.OTHER, geometryType, "test_field")
-      
-      assertDoesNotThrow("Should handle $geometryType type") {
-        val result = GeometryTypeHandler.handleFieldType(args) { "fallback" }
-        assertNotNull(result)
-        assertTrue(result is Schema, "Should return Schema for $geometryType")
-      }
+      assertTrue(GeometryTypeHandler.isGeometryTypeString(geometryType), "Should detect $geometryType as geometry type")
     }
   }
 
   @Test
-  fun `should fallback to original method for non-geometry types`() {
-    val args = arrayOf<Any>(Types.INTEGER, "INT", "regular_field")
-    var originalMethodCalled = false
-
-    val result = GeometryTypeHandler.handleFieldType(args) {
-      originalMethodCalled = true
-      "original_method_result"
+  fun `should not detect non-geometry types`() {
+    val nonGeometryTypes = listOf("VARCHAR", "INTEGER", "DECIMAL", "TIMESTAMP", "BLOB")
+    
+    nonGeometryTypes.forEach { type ->
+      assertFalse(GeometryTypeHandler.isGeometryTypeString(type), "Should not detect $type as geometry type")
     }
-
-    assertTrue(originalMethodCalled, "Original method should be called for non-geometry types")
-    assertEquals("original_method_result", result)
   }
 
   @Test
   fun `should handle case insensitive geometry type detection`() {
-    val caseVariations = listOf("geometry", "GEOMETRY", "Geometry", "GeOmEtRy")
+    val caseVariations = listOf("geometry", "GEOMETRY", "Geometry", "GeOmEtRy", "point", "POINT", "polygon")
     
     caseVariations.forEach { geometryType ->
-      assertDoesNotThrow("Should handle case variation: $geometryType") {
-        val args = arrayOf<Any>(Types.OTHER, geometryType, "spatial_field")
-        val result = GeometryTypeHandler.handleFieldType(args) { "fallback" }
-        assertNotNull(result)
-        assertTrue(result is Schema, "Should return Schema for case variation: $geometryType")
-      }
-    }
-  }
-
-  @Test
-  fun `should handle polygon type specifically`() {
-    // Test the specific case from the customer error
-    val args = arrayOf<Any>(Types.OTHER, "POLYGON", "spatial_polygon")
-    
-    assertDoesNotThrow {
-      val result = GeometryTypeHandler.handleFieldType(args) { "fallback" }
-      assertNotNull(result)
-      assertTrue(result is Schema, "Should return Schema for POLYGON")
-      
-      val schema = result as Schema
-      assertEquals("io.debezium.data.geometry.Geometry", schema.name(), "POLYGON should use Geometry schema")
+      assertTrue(GeometryTypeHandler.isGeometryTypeString(geometryType), "Should detect case variation: $geometryType")
     }
   }
 

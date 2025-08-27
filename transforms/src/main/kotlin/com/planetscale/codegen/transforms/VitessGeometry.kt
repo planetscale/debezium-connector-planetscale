@@ -8,21 +8,22 @@ import net.bytebuddy.matcher.ElementMatchers
 
 /**
  * ByteBuddy transform that adds GEOMETRY/spatial data type support to the Vitess connector
- * by intercepting specific field type resolution methods that convert VitessType to JDBC types.
+ * by intercepting the exact method that handles VStream field message processing.
  * 
- * This targets the exact method that throws "Cannot resolve JDBC type from VStream field"
- * errors when encountering GEOMETRY types with jdbcId=1111 (Types.OTHER).
+ * This targets the handleFieldMessage method in VStreamOutputMessageDecoder that is responsible
+ * for creating table schemas from field definitions. When it encounters GEOMETRY types 
+ * with jdbcId=1111 (Types.OTHER), our handler will create the proper Debezium schema structure.
  */
-internal class VitessGeometry : AbstractTransform() {
+class VitessGeometry : AbstractTransform() {
   override fun matches(target: TypeDescription): Boolean = 
     // Target the specific decoder that handles VStream field type resolution
-    target.simpleName == "VStreamOutputMessageDecoder" ||
-    // Also target any classes that handle VitessType to JDBC type conversion
-    target.simpleName.contains("VitessType") ||
-    target.simpleName.contains("ColumnDefinition")
+    target.simpleName == "VStreamOutputMessageDecoder"
 
-  override fun transform(builder: Builder<*>): Builder<*> = builder.apply {
-    method(ElementMatchers.nameContains("decode"))
+  override fun transform(builder: Builder<*>, typeDescription: TypeDescription): Builder<*> = builder.apply {
+    // Validate that the target method exists before applying the transformation
+    validateTargetMethod(typeDescription, "handleFieldMessage")
+    
+    method(ElementMatchers.named("handleFieldMessage"))
       .intercept(MethodDelegation.to(GeometryTypeHandler::class.java))
   }
 }

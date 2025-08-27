@@ -15,6 +15,11 @@ import net.bytebuddy.dynamic.DynamicType
 class VitessPluginHooks : Plugin {
   private val plugins: List<Plugin> = listOf(
     VitessManagedChannel(),
+    // GEOMETRY support transforms - these fix the customer's GEOMETRY field issues
+    VitessColumnValueTransform(),  // Fixes "ignore unknown column type" in asDefault()
+    VitessTypeEnhancement(),       // Enhances VitessType.resolve() for GEOMETRY types
+    VitessGeometry(),             // Handles GEOMETRY field schema creation
+    VitessValueResolver(),        // Handles GEOMETRY value conversion
   )
 
   override fun matches(target: TypeDescription): Boolean {

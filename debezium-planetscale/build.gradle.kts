@@ -7,9 +7,10 @@
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
 import com.planetscale.PlanetscaleBuild
-import com.planetscale.codegen.transforms.VitessHello
 import com.planetscale.codegen.transforms.VitessManagedChannel
 import com.planetscale.codegen.transforms.VitessGeometry
+import com.planetscale.codegen.transforms.VitessTypeEnhancement
+import com.planetscale.codegen.transforms.VitessValueResolver
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
@@ -176,9 +177,31 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
   dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
-  transformation { plugin = VitessHello::class.java }
+  
+  // CRITICAL: Transform order matters for GEOMETRY support functionality
+  // These transforms must be applied in this specific order to ensure proper GEOMETRY handling:
+  
+  // 1. VitessManagedChannel - Establishes secure connection handling (must be first)
   transformation { plugin = VitessManagedChannel::class.java }
+  
+  // 2. VitessTypeEnhancement - Enhances VitessType.resolve() to handle GEOMETRY types
+  //    This MUST come before VitessGeometry because it provides the type resolution
+  //    that VitessGeometry depends on for schema creation
+  transformation { plugin = VitessTypeEnhancement::class.java }
+  
+  // 3. VitessGeometry - Handles GEOMETRY field schema creation during field message processing
+  //    Depends on VitessTypeEnhancement being applied first to ensure GEOMETRY types can be resolved
   transformation { plugin = VitessGeometry::class.java }
+  
+  // 4. VitessValueResolver - Handles GEOMETRY value conversion during message processing  
+  //    This MUST come last because it depends on both schema and type resolution being available
+  transformation { plugin = VitessValueResolver::class.java }
+  
+  // Changing this order will break GEOMETRY support:
+  // - If VitessGeometry comes before VitessTypeEnhancement: Schema creation will fail because 
+  //   VitessType.resolve() won't know how to handle GEOMETRY types
+  // - If VitessValueResolver comes before the others: Value conversion will fail because
+  //   the necessary schema structures and type mappings won't be available
 }
 
 val connectRoot = layout.buildDirectory.dir("connect")
