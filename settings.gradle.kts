@@ -8,8 +8,6 @@
 
 pluginManagement {
   includeBuild("build-logic")
-  includeBuild("transforms")
-  includeBuild("transformer")
 
   repositories {
     mavenCentral()
@@ -47,7 +45,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "debezium-connector-planetscale"
 
-includeBuild("debezium-planetscale")
+// Multi-module project structure - no more composite builds
+include("debezium-planetscale")
+include("transforms")
+include("transformer")
 
 enableFeaturePreview("STABLE_CONFIGURATION_CACHE")
 enableFeaturePreview("GROOVY_COMPILATION_AVOIDANCE")

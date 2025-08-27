@@ -6,35 +6,83 @@
  */
 @file:Suppress("unused")
 
-val allProjects = listOf(
-  "debezium-planetscale",
-  "transformer",
-  "transforms",
-)
+// Multi-module project coordination - no more composite build dependencies
 
-fun Task.doTaskForAllProjects(name: String? = this.name) {
-  dependsOn(
-    allProjects.map {
-      gradle.includedBuild(it).task(":$name")
-    }
-  )
+subprojects {
+  // Apply common configurations to all subprojects
+  group = "com.planetscale.debezium"
+  
+  repositories {
+    mavenCentral()
+    google()
+  }
+  
+  // Unified dependency resolution - locking configured per module as needed
 }
 
+// Root project tasks that coordinate subproject activities
 tasks {
-  val apiCheck by registering { doTaskForAllProjects() }
-  val apiDump by registering { doTaskForAllProjects() }
-  val assemble by registering { doTaskForAllProjects() }
-  val build by registering { doTaskForAllProjects() }
-  val check by registering { doTaskForAllProjects() }
-  val clean by registering { doTaskForAllProjects() }
-  val detekt by registering { doTaskForAllProjects() }
-  val publish by registering { dependsOn(gradle.includedBuild("debezium-planetscale").task(":publish")) }
-  val resolveAndLockAll by registering { doTaskForAllProjects() }
-  val spotlessApply by registering { doTaskForAllProjects() }
-  val spotlessCheck by registering { doTaskForAllProjects() }
-  val spotlessKotlinApply by registering { doTaskForAllProjects() }
-  val spotlessKotlinCheck by registering { doTaskForAllProjects() }
-  val spotlessKotlinGradleApply by registering { doTaskForAllProjects() }
-  val spotlessKotlinGradleCheck by registering { doTaskForAllProjects() }
-  val test by registering { doTaskForAllProjects() }
+  val clean by registering {
+    description = "Clean all subprojects"
+    dependsOn(subprojects.map { it.tasks.named("clean") })
+  }
+  
+  val assemble by registering {
+    description = "Assemble all subprojects"
+    dependsOn(subprojects.map { it.tasks.named("assemble") })
+  }
+  
+  val build by registering {
+    description = "Build all subprojects"
+    dependsOn(subprojects.map { it.tasks.named("build") })
+  }
+  
+  val test by registering {
+    description = "Test all subprojects"
+    dependsOn(subprojects.map { it.tasks.named("test") })
+  }
+  
+  val check by registering {
+    description = "Check all subprojects"
+    dependsOn(subprojects.map { it.tasks.named("check") })
+  }
+  
+  val detekt by registering {
+    description = "Run detekt on all subprojects"
+    dependsOn(subprojects.mapNotNull { project ->
+      project.tasks.findByName("detekt")
+    })
+  }
+  
+  val spotlessCheck by registering {
+    description = "Check code formatting on all subprojects"
+    dependsOn(subprojects.mapNotNull { project ->
+      project.tasks.findByName("spotlessCheck")
+    })
+  }
+  
+  val spotlessApply by registering {
+    description = "Apply code formatting on all subprojects"
+    dependsOn(subprojects.mapNotNull { project ->
+      project.tasks.findByName("spotlessApply")
+    })
+  }
+  
+  val publish by registering {
+    description = "Publish main connector artifacts"
+    dependsOn(":debezium-planetscale:publish")
+  }
+  
+  val resolveAndLockAll by registering {
+    description = "Resolve and lock all dependencies for all subprojects"
+    dependsOn(subprojects.map { project ->
+      project.tasks.named("dependencies")
+    })
+    doLast {
+      // Generate unified lock files
+      subprojects.forEach { project ->
+        project.dependencyLocking.lockAllConfigurations()
+      }
+    }
+  }
 }

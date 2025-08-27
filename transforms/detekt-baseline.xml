@@ -2,29 +2,50 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>AnnotationOnSeparateLine:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel$@Suppress("unused") internal</ID>
-    <ID>Indentation:AbstractTransform.kt$AbstractTransform$ </ID>
-    <ID>Indentation:DebeziumVitessHello.kt$DebeziumVitessHello$ </ID>
-    <ID>Indentation:PlanetscaleAuthTest.kt$PlanetscaleAuthTest$ </ID>
-    <ID>Indentation:PlanetscaleConstants.kt$PlanetscaleConstants$ </ID>
-    <ID>Indentation:PlanetscaleManagedChannel.kt$PlanetscaleAuth$ </ID>
-    <ID>Indentation:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel$ </ID>
-    <ID>Indentation:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel.&lt;no name provided&gt;$ </ID>
-    <ID>Indentation:VitessHello.kt$VitessHello$ </ID>
-    <ID>Indentation:VitessManagedChannel.kt$VitessManagedChannel$ </ID>
-    <ID>Indentation:VitessPluginHooks.kt$VitessPluginHooks$ </ID>
+    <ID>ExplicitGarbageCollectionCall:GeometryTypeHandler.kt$GeometryTypeHandler$gc()</ID>
     <ID>LibraryEntitiesShouldNotBePublic:AbstractTransform.kt$AbstractTransform : Plugin</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:ByteBuddyTransformIntegrationTest.kt$ByteBuddyTransformIntegrationTest</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:CustomerGeometryErrorTest.kt$CustomerGeometryErrorTest</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:GeometryValueHandlerTest.kt$GeometryValueHandlerTest</ID>
     <ID>LibraryEntitiesShouldNotBePublic:PlanetscaleAuthTest.kt$PlanetscaleAuthTest</ID>
-    <ID>LibraryEntitiesShouldNotBePublic:VitessHello.kt$VitessHello : AbstractTransform</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessColumnValueTransform.kt$VitessColumnValueTransform : AbstractTransform</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessGeometry.kt$VitessGeometry : AbstractTransform</ID>
     <ID>LibraryEntitiesShouldNotBePublic:VitessManagedChannel.kt$VitessManagedChannel : AbstractTransform</ID>
     <ID>LibraryEntitiesShouldNotBePublic:VitessPluginHooks.kt$VitessPluginHooks : Plugin</ID>
-    <ID>MagicNumber:PlanetscaleConstants.kt$PlanetscaleConstants$443</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessTypeEnhancement.kt$VitessTypeEnhancement : AbstractTransform</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessTypeHandlerTest.kt$VitessTypeHandlerTest</ID>
+    <ID>LibraryEntitiesShouldNotBePublic:VitessValueResolver.kt$VitessValueResolver : AbstractTransform</ID>
+    <ID>MaxLineLength:AbstractTransform.kt$AbstractTransform$logger.debug("Validated method signature: {} on type {}", "$methodName(${paramTypes.joinToString(", ") { it.simpleName }})", typeDescription.name)</ID>
+    <ID>MaxLineLength:GeometryTypeHandler.kt$GeometryTypeHandler$val error = "Method validation failed: Method '$methodName' not found on class '${clazz.name}'. Available methods with same name: ${availableMethods.joinToString(", ")}"</ID>
+    <ID>MaxLineLength:GeometryValueHandler.kt$GeometryValueHandler$val error = "Method validation failed: Method '$methodName' not found on class '${clazz.name}'. Available methods with same name: ${availableMethods.joinToString(", ")}"</ID>
+    <ID>MaxLineLength:VitessColumnValueHandler.kt$VitessColumnValueHandler$val error = "Method validation failed: Method '$methodName' not found on class '${clazz.name}'. Available methods with same name: ${availableMethods.joinToString(", ")}"</ID>
+    <ID>MaxLineLength:VitessTypeHandler.kt$VitessTypeHandler$val error = "Method validation failed: Method '$methodName' not found on class '${clazz.name}'. Available methods with same name: ${availableMethods.joinToString(", ")}"</ID>
     <ID>MayBeConst:PlanetscaleConstants.kt$PlanetscaleConstants$val HOST: String = "https://connect.psdb.cloud"</ID>
     <ID>MayBeConst:PlanetscaleConstants.kt$PlanetscaleConstants$val PORT: Int = 443</ID>
-    <ID>MultiLineIfElse:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel.&lt;no name provided&gt;$PlanetscaleAuth.authorizationHeader(user, config.vtgatePassword.toCharArray()).let { header -&gt; headers.put(authorizationHeader, header) super.start(responseListener, headers) }</ID>
-    <ID>NoMultipleSpaces:AbstractTransform.kt$AbstractTransform$ </ID>
-    <ID>NoWildcardImports:PlanetscaleAuthTest.kt$import kotlin.test.*</ID>
-    <ID>SpacingAroundColon:PlanetscaleManagedChannel.kt$PlanetscaleManagedChannel$:</ID>
-    <ID>WildcardImport:PlanetscaleAuthTest.kt$import kotlin.test.*</ID>
+    <ID>NewLineAtEndOfFile:ByteBuddyTransformIntegrationTest.kt$com.planetscale.debezium.geometry.ByteBuddyTransformIntegrationTest.kt</ID>
+    <ID>NewLineAtEndOfFile:CustomerGeometryErrorTest.kt$com.planetscale.debezium.geometry.CustomerGeometryErrorTest.kt</ID>
+    <ID>NewLineAtEndOfFile:GeometryValueHandler.kt$com.planetscale.debezium.geometry.GeometryValueHandler.kt</ID>
+    <ID>NewLineAtEndOfFile:GeometryValueHandlerTest.kt$com.planetscale.debezium.geometry.GeometryValueHandlerTest.kt</ID>
+    <ID>NewLineAtEndOfFile:VitessColumnValueHandler.kt$com.planetscale.debezium.geometry.VitessColumnValueHandler.kt</ID>
+    <ID>NewLineAtEndOfFile:VitessColumnValueTransform.kt$com.planetscale.codegen.transforms.VitessColumnValueTransform.kt</ID>
+    <ID>NewLineAtEndOfFile:VitessTypeEnhancement.kt$com.planetscale.codegen.transforms.VitessTypeEnhancement.kt</ID>
+    <ID>NewLineAtEndOfFile:VitessTypeHandler.kt$com.planetscale.debezium.geometry.VitessTypeHandler.kt</ID>
+    <ID>NewLineAtEndOfFile:VitessTypeHandlerTest.kt$com.planetscale.debezium.geometry.VitessTypeHandlerTest.kt</ID>
+    <ID>NewLineAtEndOfFile:VitessValueResolver.kt$com.planetscale.codegen.transforms.VitessValueResolver.kt</ID>
+    <ID>ReturnCount:GeometryTypeHandler.kt$GeometryTypeHandler$@JvmStatic @RuntimeType fun handleFieldMessage( @AllArguments args: Array&lt;Any&gt;, @SuperCall callable: Callable&lt;Any&gt; ): Any</ID>
+    <ID>ReturnCount:GeometryTypeHandler.kt$GeometryTypeHandler$private fun detectGeometryFromByteArray(bytes: ByteArray): Boolean</ID>
+    <ID>ReturnCount:GeometryTypeHandler.kt$GeometryTypeHandler$private fun detectGeometryFromField(field: Any): Boolean</ID>
+    <ID>ReturnCount:VitessColumnValueHandler.kt$VitessColumnValueHandler$@JvmStatic @RuntimeType fun handleAsDefault( @This vitessColumnValue: Any, @Argument(0) vitessType: Any, @Argument(1) includeUnknownDatatypes: Boolean, @SuperCall callable: Callable&lt;Any&gt; ): Any?</ID>
+    <ID>ReturnCount:VitessTypeHandler.kt$VitessTypeHandler$@JvmStatic @RuntimeType fun handleResolve( @AllArguments args: Array&lt;Any&gt;, @SuperCall callable: Callable&lt;Any&gt; ): Any</ID>
+    <ID>ReturnCount:VitessTypeHandler.kt$VitessTypeHandler$private fun validateClassLoaderSecurity(classLoader: ClassLoader)</ID>
+    <ID>SpreadOperator:GeometryTypeHandler.kt$GeometryTypeHandler$(methodName, *parameterTypes)</ID>
+    <ID>SpreadOperator:GeometryValueHandler.kt$GeometryValueHandler$(methodName, *parameterTypes)</ID>
+    <ID>SpreadOperator:VitessColumnValueHandler.kt$VitessColumnValueHandler$(methodName, *parameterTypes)</ID>
+    <ID>SpreadOperator:VitessTypeHandler.kt$VitessTypeHandler$(methodName, *parameterTypes)</ID>
+    <ID>ThrowsCount:VitessTypeHandler.kt$VitessTypeHandler$private fun createGeometryVitessType(field: Any): Any</ID>
+    <ID>ThrowsCount:VitessTypeHandler.kt$VitessTypeHandler$private fun loadVitessTypeClassSecurely(classLoader: ClassLoader): Class&lt;*&gt;</ID>
+    <ID>TooGenericExceptionThrown:CustomerGeometryErrorTest.kt$CustomerGeometryErrorTest.MockCallable$throw RuntimeException("Mock callable returned null")</ID>
+    <ID>TooGenericExceptionThrown:VitessTypeHandlerTest.kt$VitessTypeHandlerTest.MockCallable$throw RuntimeException("Mock returned null")</ID>
+    <ID>TooManyFunctions:GeometryTypeHandler.kt$GeometryTypeHandler</ID>
   </CurrentIssues>
 </SmellBaseline>

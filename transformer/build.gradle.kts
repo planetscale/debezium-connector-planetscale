@@ -11,7 +11,7 @@ plugins {
 
 dependencies {
   implementation(gradleApi())
-  implementation(libs.planetscale.debezium.transforms)
+  implementation(project(":transforms"))
 }
 
 val pluginId = "com.planetscale.debezium"

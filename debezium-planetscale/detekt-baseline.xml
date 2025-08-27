@@ -2,26 +2,13 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>EmptyClassBlock:PlanetscaleCloudEventsProvider.kt$PlanetscaleCloudEventsProvider${ }</ID>
     <ID>FunctionOnlyReturningConstant:PlanetscaleDebezium.kt$PlanetscaleDebezium$public fun setup(): Boolean</ID>
-    <ID>Indentation:ConnectorStartTest.kt$ConnectorStartTest$ </ID>
-    <ID>Indentation:KafkaSpiTest.kt$KafkaSpiTest$ </ID>
-    <ID>Indentation:PlanetscaleDebezium.kt$PlanetscaleDebezium$ </ID>
-    <ID>Indentation:VitessIntegrationTest.kt$VitessIntegrationTest$ </ID>
-    <ID>Indentation:VitessIntegrationTest.kt$VitessIntegrationTest.Companion$ </ID>
     <ID>LibraryEntitiesShouldNotBePublic:ConnectorStartTest.kt$ConnectorStartTest : VitessIntegrationTest</ID>
     <ID>LibraryEntitiesShouldNotBePublic:KafkaSpiTest.kt$KafkaSpiTest</ID>
     <ID>LibraryEntitiesShouldNotBePublic:LibraryTest.kt$LibraryTest</ID>
     <ID>LibraryEntitiesShouldNotBePublic:PlanetscaleCloudEventsProvider.kt$PlanetscaleCloudEventsProvider : VitessCloudEventsProvider</ID>
     <ID>LibraryEntitiesShouldNotBePublic:PlanetscaleConnector.kt$PlanetscaleConnector : VitessConnector</ID>
     <ID>LibraryEntitiesShouldNotBePublic:VitessIntegrationTest.kt$VitessIntegrationTest</ID>
-    <ID>NoEmptyClassBody:PlanetscaleCloudEventsProvider.kt$PlanetscaleCloudEventsProvider${ }</ID>
-    <ID>NoMultipleSpaces:VitessIntegrationTest.kt$VitessIntegrationTest.Companion$ </ID>
-    <ID>NoWildcardImports:ConnectorStartTest.kt$import kotlin.test.*</ID>
-    <ID>NoWildcardImports:KafkaSpiTest.kt$import kotlin.test.*</ID>
-    <ID>SpacingAroundColon:PlanetscaleCloudEventsProvider.kt$PlanetscaleCloudEventsProvider$:</ID>
     <ID>UnusedPrivateProperty:PlanetscaleDebezium.kt$PlanetscaleDebezium$val adapter = PlanetscaleConnector()</ID>
-    <ID>WildcardImport:ConnectorStartTest.kt$import kotlin.test.*</ID>
-    <ID>WildcardImport:KafkaSpiTest.kt$import kotlin.test.*</ID>
   </CurrentIssues>
 </SmellBaseline>
