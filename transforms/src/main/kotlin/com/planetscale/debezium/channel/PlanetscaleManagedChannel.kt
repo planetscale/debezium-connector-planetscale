@@ -10,7 +10,6 @@ import com.planetscale.debezium.PlanetscaleConstants
 import io.debezium.annotation.VisibleForTesting
 import io.debezium.connector.vitess.VitessConnectorConfig
 import io.grpc.*
-import net.bytebuddy.implementation.bind.annotation.FieldValue
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 import java.util.*
@@ -33,7 +32,8 @@ private const val BASIC_AUTH = "Basic"
       host ?: PlanetscaleConstants.HOST,
       port ?: PlanetscaleConstants.PORT,
     ).also {
-      // mount configuration for adapter (we use it later for authorization)
+      // mount configuration for adapter
+      // tmp: commented until needed for mTLS
       // this.config = config
     }
 

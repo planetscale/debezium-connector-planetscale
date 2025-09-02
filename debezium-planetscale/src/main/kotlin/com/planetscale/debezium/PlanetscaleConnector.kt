@@ -12,7 +12,12 @@ import org.apache.kafka.common.config.ConfigValue
 
 public class PlanetscaleConnector : VitessConnector() {
   override fun validateConnection(configValues: Map<String?, ConfigValue?>?, config: Configuration?) {
+    // no-op: the upstream adapter attempts to connect to vitess to pre-flight the connection config, but at this stage,
+    // we don't have config fully loaded, and/or grpc interceptors, so this call is guaranteed to fail for hosted grpc
+    // endpoints like planetscale.
+    //
+    // instead, the connection config itself is validated, and then the connection simply succeeds or fails.
+
     // super.validateConnection(configValues, config)
-    // nerfed for use by planetscale
   }
 }
