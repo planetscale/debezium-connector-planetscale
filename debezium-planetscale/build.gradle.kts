@@ -6,6 +6,7 @@
  */
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.planetscale.PlanetscaleBuild
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
@@ -268,20 +269,10 @@ tasks {
     finalizedBy(transformVitess)
   }
 
-  named("run", JavaExec::class) {
-    dependsOn(shadowJar)
-
-    classpath = files(
-      configurations.compileClasspath,
-      configurations.runtimeClasspath,
-      shadowJar.get().outputs.files.single(),
-    )
-  }
-
-  shadowJar {
-    archiveClassifier = ""
+  fun ShadowJar.configureShadowedJar(classifier: String = "") {
     archiveBaseName = "planetscale-debezium-adapter"
     includeEmptyDirs = false
+    archiveClassifier = classifier
 
     // `io.debezium.connector.vitess` → `com.planetscale.labs.io.debezium.connector.vitess`.
     relocate(vitessPackage, "$packagePrefix.$vitessPackage")
@@ -295,10 +286,6 @@ tasks {
     // merge and rewrite service files accounting for relocations.
     mergeServiceFiles()
 
-    // only package our own transitive classes; this includes symbols which are needed for transform-injected hooks.
-    dependencyFilter.include {
-      it.moduleGroup == PlanetscaleBuild.PACKAGE_GROUP
-    }
     exclude(
       // don't include bytebuddy classes; we only use them at build time.
       "net/bytebuddy/**",
@@ -320,14 +307,37 @@ tasks {
     }
   }
 
+  shadowJar {
+    configureShadowedJar()
+
+    // only package our own transitive classes; this includes symbols which are needed for transform-injected hooks.
+    dependencyFilter.include {
+      it.moduleGroup == PlanetscaleBuild.PACKAGE_GROUP
+    }
+  }
+
+  val fullyShadowed by registering(ShadowJar::class) {
+    configureShadowedJar(classifier = "all")
+  }
+
+  named("run", JavaExec::class) {
+    dependsOn(shadowJar)
+
+    classpath = files(
+      configurations.compileClasspath,
+      configurations.runtimeClasspath,
+      shadowJar.get().outputs.files.single(),
+    )
+  }
+
   test {
     useJUnitPlatform()
   }
 
   publish {
-    dependsOn(shadowJar, spdxSbom)
+    dependsOn(shadowJar, fullyShadowed, spdxSbom)
   }
   build {
-    dependsOn(shadowJar, spdxSbom, publish, connectDist)
+    dependsOn(shadowJar, fullyShadowed, spdxSbom, publish, connectDist)
   }
 }
