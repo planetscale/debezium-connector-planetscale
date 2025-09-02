@@ -322,9 +322,6 @@ private fun SpotlessExtension.configureSpotless(project: Project, libs: Librarie
     )
   }
 
-  java {
-    googleJavaFormat(libs.versions.googleJavaFormat.get())
-  }
   kotlin {
     ktlint(libs.versions.ktlint.get()).apply { baselines() }
   }
