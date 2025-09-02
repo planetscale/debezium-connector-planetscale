@@ -45,6 +45,7 @@ import binlogdata.Binlogdata.VEvent;
  */
 @SuppressWarnings("unused")
 public class VitessReplicationConnection implements ReplicationConnection {
+
   private static final Logger LOGGER = LoggerFactory.getLogger(VitessReplicationConnection.class);
 
   private final MessageDecoder messageDecoder;
@@ -352,8 +353,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
     Objects.requireNonNull(password, "vtgate password must not be null");
     String preimage = user + ":" + password;
     String encoded = Base64.getEncoder().encodeToString(preimage.getBytes());
-    String authHeader = "Basic " + encoded;
-    return authHeader;
+    return "Basic " + encoded;
   }
 
   private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize) {
