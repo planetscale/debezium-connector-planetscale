@@ -155,6 +155,8 @@ val debeziumClasses by tasks.registering(Copy::class) {
   into(layout.buildDirectory.dir("debezium/classes"))
   include("**/*.class")
   exclude("**/VitessReplicationConnection*")  // fix: private `newChannel` override
+  exclude("**/VitessValueConverter*")  // fix: custom type support (geo)
+  exclude("**/VitessDatabaseSchema*")  // fix: custom type support (geo)
   finalizedBy(debeziumClassesPatched)
 }
 
@@ -174,7 +176,6 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
   dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
-  // transformation { plugin = VitessManagedChannel::class.java }
 }
 
 val connectRoot = layout.buildDirectory.dir("connect")

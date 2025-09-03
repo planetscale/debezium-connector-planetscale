@@ -12,6 +12,30 @@ public final class com/planetscale/debezium/converters/PlanetscaleCloudEventsPro
 	public fun <init> ()V
 }
 
+public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/relational/RelationalDatabaseSchema {
+	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;)V
+	public fun applySchemaChangesForTable (Lio/debezium/relational/Table;)V
+	public static fun buildTableId (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/debezium/relational/TableId;
+	public static fun parse (Ljava/lang/String;)Lio/debezium/relational/TableId;
+	public fun refresh (Lio/debezium/relational/Table;)V
+	public fun refreshSchema (Lio/debezium/relational/TableId;)V
+}
+
+public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdbc/JdbcValueConverters {
+	public fun <init> (Lio/debezium/jdbc/JdbcValueConverters$DecimalMode;Lio/debezium/jdbc/TemporalPrecisionMode;Ljava/time/ZoneOffset;Lio/debezium/config/CommonConnectorConfig$BinaryHandlingMode;ZLio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;ZLjava/time/temporal/TemporalAdjuster;Lio/debezium/config/CommonConnectorConfig$EventConvertingFailureHandlingMode;Lio/debezium/service/spi/ServiceRegistry;)V
+	protected fun convertSetToString (Ljava/util/List;Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
+	protected fun convertSetValue (Lio/debezium/relational/Column;JLjava/util/List;)Ljava/lang/String;
+	protected fun convertUnsignedBigint (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
+	protected static fun convertUnsignedBigint (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;
+	public fun converter (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;)Lio/debezium/relational/ValueConverter;
+	public static fun isDateOrDateTime (Ljava/lang/String;)Z
+	protected static fun matches (Ljava/lang/String;Ljava/lang/String;)Z
+	public fun schemaBuilder (Lio/debezium/relational/Column;)Lorg/apache/kafka/connect/data/SchemaBuilder;
+	public static fun stringToDuration (Ljava/lang/String;)Ljava/time/Duration;
+	public static fun stringToLocalDate (Ljava/lang/String;)Ljava/time/LocalDate;
+	public static fun stringToTimestamp (Ljava/lang/String;)Ljava/sql/Timestamp;
+}
+
 public class io/debezium/connector/vitess/connection/VitessReplicationConnection : io/debezium/connector/vitess/connection/ReplicationConnection {
 	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/connector/vitess/VitessDatabaseSchema;)V
 	public static fun buildVgtid (Ljava/lang/String;Ljava/util/List;Ljava/util/List;)Lio/debezium/connector/vitess/Vgtid;

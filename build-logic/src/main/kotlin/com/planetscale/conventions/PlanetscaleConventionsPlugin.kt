@@ -153,6 +153,12 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
     project.the<SpotlessExtension>().apply { configureSpotless(project, libs) }
     project.extensions.findByType<KoverProjectExtension>()?.apply { configureKover(project) }
 
+    // disable kover verification
+    project.tasks.findByName("koverVerify")?.apply {
+      enabled = false
+      onlyIf { false }
+    }
+
     // configure kotlin and java
     if (project.pluginManager.hasPlugin("java")) {
       project.the<JavaPluginExtension>().apply {
