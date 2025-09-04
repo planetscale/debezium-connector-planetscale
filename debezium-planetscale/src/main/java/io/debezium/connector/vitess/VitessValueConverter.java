@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.binlog.jdbc.BinlogValueConverters;
 import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;
+import io.debezium.connector.mysql.charset.MySqlCharsetRegistryServiceProvider;
 import io.debezium.service.spi.ServiceRegistry;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -88,6 +89,10 @@ public class VitessValueConverter extends JdbcValueConverters {
     this.includeUnknownDatatypes = includeUnknownDatatypes;
     this.overrideDatetimeToNullable = overrideDatetimeToNullable;
     this.bigIntUnsignedHandlingMode = bigIntUnsignedHandlingMode;
+
+    // `BinlogValueConverters` requires an instance of `BinlogCharsetRegistry`; this is the implementation used by the
+    // mysql adapter itself.
+    serviceRegistry.registerServiceProvider(new MySqlCharsetRegistryServiceProvider());
 
     // note: we delegate to the `BinlogValueConverters` if the superclass (`JdbcValueConverters`) has no advice to offer
     // about a given type. this allows types like `GEOMETRY` to retain support in the Vitess adapter.
