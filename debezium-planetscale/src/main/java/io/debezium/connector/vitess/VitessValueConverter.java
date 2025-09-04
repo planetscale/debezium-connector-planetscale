@@ -65,9 +65,11 @@ public class VitessValueConverter extends JdbcValueConverters {
       case LONG -> {
         return BigIntUnsignedMode.LONG;
       }
-      default ->
-        throw new IllegalArgumentException(String.format("BigIntUnsignedMode of `%s` is not legal for use with " +
-                "Vitess; please specify one of `PRECISE` or `LONG` instead", mode.name()));
+      default -> {
+        LOGGER.warn("BigIntUnsignedMode of `{}` is not legal for use with " +
+                "Vitess; please specify one of `PRECISE` or `LONG` instead. Defaulting to `PRECISE`.", mode.name());
+        return BigIntUnsignedMode.PRECISE;
+      }
     }
   }
 
