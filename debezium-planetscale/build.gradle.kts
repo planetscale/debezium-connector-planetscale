@@ -157,6 +157,7 @@ val debeziumClasses by tasks.registering(Copy::class) {
   exclude("**/VitessReplicationConnection*")  // fix: private `newChannel` override
   exclude("**/VitessValueConverter*")  // fix: custom type support (geo)
   exclude("**/VitessDatabaseSchema*")  // fix: custom type support (geo)
+  exclude("**/VitessConnectorConfig*")  // fix: overrides for cell hint, etc
   finalizedBy(debeziumClassesPatched)
 }
 

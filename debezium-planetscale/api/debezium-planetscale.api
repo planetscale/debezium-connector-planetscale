@@ -12,6 +12,108 @@ public final class com/planetscale/debezium/converters/PlanetscaleCloudEventsPro
 	public fun <init> ()V
 }
 
+public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/relational/RelationalDatabaseConnectorConfig {
+	public static field ALL_FIELDS Lio/debezium/config/Field$Set;
+	public static final field BIGINT_UNSIGNED_HANDLING_MODE Lio/debezium/config/Field;
+	protected static final field CONFIG_DEFINITION Lio/debezium/config/ConfigDefinition;
+	public static final field CSV_DELIMITER Ljava/lang/String;
+	public static final field EXCLUDE_EMPTY_SHARDS Lio/debezium/config/Field;
+	public static final field GRPC_DEFAULT_LOAD_BALANCING_POLICY Lio/debezium/config/Field;
+	public static final field GRPC_HEADERS Lio/debezium/config/Field;
+	public static final field GRPC_MAX_INBOUND_MESSAGE_SIZE Lio/debezium/config/Field;
+	public static final field GTID Lio/debezium/config/Field;
+	public static final field INCLUDE_SCHEMA_CHANGES Lio/debezium/config/Field;
+	public static final field INCLUDE_UNKNOWN_DATATYPES Lio/debezium/config/Field;
+	public static final field INHERIT_EPOCH Lio/debezium/config/Field;
+	public static final field KEEPALIVE_INTERVAL_MS Lio/debezium/config/Field;
+	public static final field KEYSPACE Lio/debezium/config/Field;
+	public static final field OFFSET_STORAGE_PER_TASK Lio/debezium/config/Field;
+	public static final field OFFSET_STORAGE_TASK_KEY_GEN Lio/debezium/config/Field;
+	public static final field OVERRIDE_DATETIME_TO_NULLABLE Lio/debezium/config/Field;
+	public static final field PREV_NUM_TASKS Lio/debezium/config/Field;
+	public static final field SHARD Lio/debezium/config/Field;
+	public static final field SHARD_EPOCH_MAP Lio/debezium/config/Field;
+	public static final field SNAPSHOT_MODE Lio/debezium/config/Field;
+	public static final field SOURCE_INFO_STRUCT_MAKER Lio/debezium/config/Field;
+	public static final field STOP_ON_RESHARD_FLAG Lio/debezium/config/Field;
+	public static final field STREAM_KEYSPACE_HEARTBEATS Lio/debezium/config/Field;
+	public static final field TABLET_TYPE Lio/debezium/config/Field;
+	protected static final field TASKS_MAX_CONFIG Ljava/lang/String;
+	public static final field TIME_PRECISION_MODE Lio/debezium/config/Field;
+	public static final field VGTID Lio/debezium/config/Field;
+	public static final field VITESS_CELLS Lio/debezium/config/Field;
+	protected static final field VITESS_TASK_KEY_CONFIG Ljava/lang/String;
+	protected static final field VITESS_TASK_SHARDS_CONFIG Ljava/lang/String;
+	public static final field VITESS_TASK_SHARD_EPOCH_MAP_CONFIG Ljava/lang/String;
+	public static final field VITESS_TASK_VGTID_CONFIG Ljava/lang/String;
+	protected static final field VITESS_TOTAL_TASKS_CONFIG Ljava/lang/String;
+	public static final field VTGATE_HOST Lio/debezium/config/Field;
+	public static final field VTGATE_PASSWORD Lio/debezium/config/Field;
+	public static final field VTGATE_PORT Lio/debezium/config/Field;
+	public static final field VTGATE_USER Lio/debezium/config/Field;
+	public fun <init> (Lio/debezium/config/Configuration;)V
+	public static fun configDef ()Lorg/apache/kafka/common/config/ConfigDef;
+	public fun createHeartbeat (Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/heartbeat/HeartbeatConnectionProvider;Lio/debezium/heartbeat/HeartbeatErrorHandler;)Lio/debezium/heartbeat/Heartbeat;
+	public fun excludeEmptyShards ()Z
+	public fun getBigIntUnsgnedHandlingMode ()Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public fun getCells ()Ljava/lang/String;
+	public fun getConnectorName ()Ljava/lang/String;
+	public fun getContextName ()Ljava/lang/String;
+	public fun getGrpcDefaultLoadBalancingPolicy ()Ljava/lang/String;
+	public fun getGrpcHeaders ()Ljava/util/Map;
+	public fun getGrpcMaxInboundMessageSize ()I
+	public fun getInheritEpoch ()Z
+	public fun getKeepaliveInterval ()Ljava/time/Duration;
+	public fun getKeyspace ()Ljava/lang/String;
+	public fun getOffsetStorageTaskKeyGen ()I
+	public fun getPrevNumTasks ()I
+	public fun getShard ()Ljava/util/List;
+	public fun getShardEpochMap ()Ljava/lang/String;
+	public fun getSnapshotLockingMode ()Ljava/util/Optional;
+	public synthetic fun getSnapshotMode ()Lio/debezium/config/EnumeratedValue;
+	public fun getSnapshotMode ()Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+	protected fun getSourceInfoStructMaker (Lio/debezium/config/CommonConnectorConfig$Version;)Lio/debezium/connector/SourceInfoStructMaker;
+	public fun getStopOnReshard ()Z
+	public fun getStreamKeyspaceHeartbeats ()Z
+	public fun getTabletType ()Ljava/lang/String;
+	public fun getTemporalPrecisionMode ()Lio/debezium/jdbc/TemporalPrecisionMode;
+	public fun getVgtid ()Ljava/lang/String;
+	public fun getVitessTaskKey ()Ljava/lang/String;
+	public fun getVitessTaskKeyShards ()Ljava/util/List;
+	public fun getVitessTaskShardEpochMap ()Lio/debezium/connector/vitess/pipeline/txmetadata/ShardEpochMap;
+	public fun getVitessTaskVgtid ()Lio/debezium/connector/vitess/Vgtid;
+	public fun getVitessTotalTasksConfig ()I
+	public fun getVtgateHost ()Ljava/lang/String;
+	public fun getVtgatePassword ()Ljava/lang/String;
+	public fun getVtgatePort ()I
+	public fun getVtgateUsername ()Ljava/lang/String;
+	public fun includeUnknownDatatypes ()Z
+	public fun isSchemaChangesHistoryEnabled ()Z
+	public fun offsetStoragePerTask ()Z
+	public fun overrideDatetimeToNullable ()Z
+}
+
+public final class io/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode : java/lang/Enum, io/debezium/config/EnumeratedValue {
+	public static final field LONG Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public static final field PRECISE Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public static final field STRING Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public fun getValue ()Ljava/lang/String;
+	public static fun parse (Ljava/lang/String;)Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public static fun parse (Ljava/lang/String;Ljava/lang/String;)Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public static fun valueOf (Ljava/lang/String;)Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+	public static fun values ()[Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
+}
+
+public final class io/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode : java/lang/Enum, io/debezium/config/EnumeratedValue {
+	public static final field INITIAL Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+	public static final field NEVER Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+	public fun getValue ()Ljava/lang/String;
+	public static fun parse (Ljava/lang/String;)Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+	public static fun parse (Ljava/lang/String;Ljava/lang/String;)Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+	public static fun valueOf (Ljava/lang/String;)Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+	public static fun values ()[Lio/debezium/connector/vitess/VitessConnectorConfig$SnapshotMode;
+}
+
 public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/relational/RelationalDatabaseSchema {
 	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;)V
 	public fun applySchemaChangesForTable (Lio/debezium/relational/Table;)V
