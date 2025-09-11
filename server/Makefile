@@ -1,0 +1,67 @@
+
+#
+## Debezium Server
+#
+# This Makefile prepares a Debezium server distribution with the Planetscale Connector pre-installed, and with a sample
+# configuration injected. Run it with `make` or `make dist`.
+#
+
+VERBOSE ?= no
+TARGET ?= target
+VERSION ?= 3.2.1.Final
+DIST ?= $(TARGET)/debezium-server-dist/
+RESOURCES ?= $(TARGET)/resources
+DOWNLOAD ?= curl -fSL --progress-bar
+CONNECTOR_OUT ?= $(CURDIR)/../debezium-planetscale/build
+CONNECTOR_JAR_NAME ?= planetscale-debezium-adapter-$(VERSION).jar
+CONNECTOR_JAR ?= $(CONNECTOR_OUT)/libs/$(CONNECTOR_JAR_NAME)
+DEBEZIUM_SERVER_URL ?= https://repo1.maven.org/maven2/io/debezium/debezium-server-dist/$(VERSION)/debezium-server-dist-$(VERSION).tar.gz
+DEBEZIUM_SERVER_ROOT ?= $(RESOURCES)/debezium-server-$(VERSION)
+DEBEZIUM_SERVER_TGZ ?= $(DEBEZIUM_SERVER_ROOT).tgz
+DEBEZIUM_SERVER_INNER ?= $(DEBEZIUM_SERVER_ROOT)/debezium-server
+DEBEZIUM_SERVER_CONFIG ?= $(DEBEZIUM_SERVER_INNER)/config/application.properties
+DEBEZIUM_SERVER_LIB ?= $(DEBEZIUM_SERVER_INNER)/lib/$(CONNECTOR_JAR_NAME)
+DEBEZIUM_SERVER_INJECTED ?= $(DEBEZIUM_SERVER_CONFIG) $(DEBEZIUM_SERVER_LIB)
+
+ifeq ($(VERBOSE),yes)
+RULE ?=
+else
+RULE ?= @
+endif
+
+all: dist  ## Build all targets.
+
+dist: $(DIST)  ## Build a Debezium Server distribution.
+
+clean:  ## Clean built targets.
+	@echo "Cleaning resources"
+	rm -fv $(DEBEZIUM_SERVER_TGZ)
+	rm -fr $(TARGET)
+
+$(RESOURCES): $(DEBEZIUM_SERVER_TGZ) $(DEBEZIUM_SERVER_ROOT)
+	$(RULE)mkdir -p $(RESOURCES)
+
+$(DEBEZIUM_SERVER_TGZ):
+	$(RULE)mkdir -p $(RESOURCES)
+	@echo "Downloading Debezium Server ($(VERSION))..."
+	$(DOWNLOAD) -o $(DEBEZIUM_SERVER_TGZ) $(DEBEZIUM_SERVER_URL)
+	@echo "- at: $(DEBEZIUM_SERVER_TGZ)"
+
+$(DEBEZIUM_SERVER_ROOT):
+	@echo "Unpacking Debezium Server dist..."
+	$(RULE)mkdir -p $(DEBEZIUM_SERVER_ROOT)
+	$(RULE)tar -C $(DEBEZIUM_SERVER_ROOT) -xzvf $(DEBEZIUM_SERVER_TGZ)
+	@echo "Server dist ready at: $(DEBEZIUM_SERVER_ROOT)"
+
+$(DEBEZIUM_SERVER_CONFIG):
+	@echo "Mounting configuration ('application.properties')..."
+	$(RULE)cp -fv ./sample-application.properties $(DEBEZIUM_SERVER_CONFIG)
+
+$(DEBEZIUM_SERVER_LIB):
+	@echo "Mounting connector (version: $(VERSION))"
+	$(RULE)cp -fv $(CONNECTOR_JAR) $(DEBEZIUM_SERVER_LIB)
+
+$(DIST): $(RESOURCES) $(DEBEZIUM_SERVER_INJECTED)
+	$(RULE)mkdir -p $(DIST)
+	@echo "Debezium Server $(VERSION) ready."
+
