@@ -80,7 +80,7 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: "Review: Claude"
         id: claude-review
-        uses: anthropics/claude-code-action@cefe963a6b4ae0e511c59b9d6cb6b7b5923714a1 # beta
+        uses: anthropics/claude-code-action@a5528eec7426a4f0c9c1ac96018daa53ebd05bc4 # beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           allowed_tools: |
