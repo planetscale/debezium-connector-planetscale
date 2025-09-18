@@ -11,7 +11,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import com.planetscale.debezium.mtls.TlsUtils;
+
+import io.grpc.*;
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,10 +29,6 @@ import io.debezium.connector.vitess.VitessDatabaseSchema;
 import io.debezium.connector.vitess.VitessMetadata;
 import io.debezium.connector.vitess.pipeline.txmetadata.ShardEpochMap;
 import io.debezium.util.Strings;
-import io.grpc.ManagedChannel;
-import io.grpc.Metadata;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
@@ -38,6 +40,8 @@ import io.vitess.proto.grpc.VitessGrpc;
 
 import binlogdata.Binlogdata;
 import binlogdata.Binlogdata.VEvent;
+
+import javax.net.ssl.SSLException;
 
 /**
  * Connection to VTGate to replication messages. Also connect to VTCtld to get the latest {@link
@@ -362,16 +366,32 @@ public class VitessReplicationConnection implements ReplicationConnection {
     return "Basic " + encoded;
   }
 
+  @SuppressWarnings("deprecation")
   private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize) {
     String authHeader = buildAuthHeaderValue();
     Metadata headers = new Metadata();
     headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), authHeader);
 
-    return NettyChannelBuilder.forAddress(vtgateHost, vtgatePort)
-            .useTransportSecurity()
+    // mTLS detection happens based on custom properties being set, because the upstream Vitess adapter does not yet
+    // ship support for it.
+    ChannelCredentials channelCredentials = null;
+    var rawConfig = config.getConfig();
+    if (rawConfig.hasKey(TlsUtils.TLS_CREDENTIAL_FILE) || rawConfig.hasKey(TlsUtils.TLS_CREDENTIAL_BASE64)) {
+      // we have a certificate via either a file or b64 encoded payload
+      channelCredentials = TlsUtils.INSTANCE.tlsCredential(rawConfig);
+    }
+
+    final NettyChannelBuilder channelBuilder;
+    if (channelCredentials != null) {
+      channelBuilder = NettyChannelBuilder.forAddress(vtgateHost, vtgatePort, channelCredentials);
+    } else {
+      channelBuilder = NettyChannelBuilder.forAddress(vtgateHost, vtgatePort);
+    }
+    return channelBuilder
             .maxInboundMessageSize(maxInboundMessageSize)
             .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS)
             .intercept(MetadataUtils.newAttachHeadersInterceptor(headers))
+            .useTransportSecurity()
             .build();
   }
 
