@@ -7,6 +7,7 @@
 #
 
 VERBOSE ?= no
+DEBUGGER ?= no
 TARGET ?= target
 VERSION ?= 3.2.1.Final
 DIST ?= $(TARGET)/debezium-server-dist/
@@ -23,6 +24,8 @@ DEBEZIUM_SERVER_CONFIG ?= $(DEBEZIUM_SERVER_INNER)/config/application.properties
 DEBEZIUM_SERVER_LIB ?= $(DEBEZIUM_SERVER_INNER)/lib/$(CONNECTOR_JAR_NAME)
 DEBEZIUM_SERVER_INJECTED ?= $(DEBEZIUM_SERVER_CONFIG) $(DEBEZIUM_SERVER_LIB)
 
+DEBUGGER_ARGS ?=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005
+
 ifeq ($(VERBOSE),yes)
 RULE ?=
 else
@@ -30,6 +33,14 @@ RULE ?= @
 endif
 
 all: dist  ## Build all targets.
+
+run: $(DIST)  ## Build and run the Debezium server.
+	@echo "Running Debezium Server..."
+ifeq ($(DEBUGGER),yes)
+	$(RULE)cd $(DEBEZIUM_SERVER_INNER) && JAVA_OPTS="$(DEBUGGER_ARGS)" ./run.sh
+else
+	$(RULE)cd $(DEBEZIUM_SERVER_INNER) && ./run.sh
+endif
 
 dist: $(DIST)  ## Build a Debezium Server distribution.
 
@@ -56,6 +67,7 @@ $(DEBEZIUM_SERVER_ROOT):
 $(DEBEZIUM_SERVER_CONFIG):
 	@echo "Mounting configuration ('application.properties')..."
 	$(RULE)cp -fv ./sample-application.properties $(DEBEZIUM_SERVER_CONFIG)
+	$(RULE)-cp -fv ./ps.properties $(DEBEZIUM_SERVER_CONFIG) || echo "No customized Debezium config; skipping."
 
 $(DEBEZIUM_SERVER_LIB):
 	@echo "Mounting connector (version: $(VERSION))"
