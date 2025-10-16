@@ -39,6 +39,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 import java.nio.file.Path
 import kotlin.io.path.name
+import kotlin.io.path.readText
 
 // Runtime JVM target.
 private const val JVM_TARGET = "17"
@@ -127,6 +128,18 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
     libs.versions.tcnative.get()
   }
 
+  private fun renderProjectVersion(debezium: String): String = buildString {
+    // `3.2.1.Final`
+    append(debezium)
+    // `3.2.1.Final-`
+    append('-')
+    // `r1`
+    val connectorVersion = project.trueProjectRoot().resolve(".version").readText().lines().first {
+      !it.startsWith("#") && !it.isBlank()
+    }
+    append(connectorVersion)
+  }
+
   override fun apply(target: Project) {
     project = target
 
@@ -140,7 +153,7 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // use consistent project coordinates and versioning
     project.group = PlanetscaleBuild.PACKAGE_GROUP
-    project.version = debeziumVersion
+    project.version = renderProjectVersion(debeziumVersion)
 
     // project repositories
     project.repositories {
