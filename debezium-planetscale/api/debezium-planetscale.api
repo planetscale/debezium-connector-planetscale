@@ -12,6 +12,13 @@ public final class com/planetscale/debezium/converters/PlanetscaleCloudEventsPro
 	public fun <init> ()V
 }
 
+public class io/debezium/connector/mysql/Module {
+	public fun <init> ()V
+	public static fun contextName ()Ljava/lang/String;
+	public static fun name ()Ljava/lang/String;
+	public static fun version ()Ljava/lang/String;
+}
+
 public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/relational/RelationalDatabaseConnectorConfig {
 	public static field ALL_FIELDS Lio/debezium/config/Field$Set;
 	public static final field BIGINT_UNSIGNED_HANDLING_MODE Lio/debezium/config/Field;
@@ -125,6 +132,7 @@ public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/rel
 
 public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdbc/JdbcValueConverters {
 	public fun <init> (Lio/debezium/jdbc/JdbcValueConverters$DecimalMode;Lio/debezium/jdbc/TemporalPrecisionMode;Ljava/time/ZoneOffset;Lio/debezium/config/CommonConnectorConfig$BinaryHandlingMode;ZLio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;ZLjava/time/temporal/TemporalAdjuster;Lio/debezium/config/CommonConnectorConfig$EventConvertingFailureHandlingMode;Lio/debezium/service/spi/ServiceRegistry;)V
+	protected fun convertGeometry (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetToString (Ljava/util/List;Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetValue (Lio/debezium/relational/Column;JLjava/util/List;)Ljava/lang/String;
 	protected fun convertUnsignedBigint (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
@@ -136,6 +144,22 @@ public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdb
 	public static fun stringToDuration (Ljava/lang/String;)Ljava/time/Duration;
 	public static fun stringToLocalDate (Ljava/lang/String;)Ljava/time/LocalDate;
 	public static fun stringToTimestamp (Ljava/lang/String;)Ljava/sql/Timestamp;
+}
+
+public class io/debezium/connector/vitess/connection/VitessColumnValue : io/debezium/connector/vitess/connection/ReplicationMessage$ColumnValue {
+	public fun <init> ([B)V
+	public fun asBytes ()[B
+	public fun asDefault (Lio/debezium/connector/vitess/VitessType;Z)Ljava/lang/Object;
+	public fun asDouble ()Ljava/lang/Double;
+	public fun asFloat ()Ljava/lang/Float;
+	public fun asGeometry ()Lorg/apache/kafka/connect/data/Struct;
+	public fun asInteger ()Ljava/lang/Integer;
+	public fun asLong ()Ljava/lang/Long;
+	public fun asShort ()Ljava/lang/Short;
+	public fun asString ()Ljava/lang/String;
+	public synthetic fun getRawValue ()Ljava/lang/Object;
+	public fun getRawValue ()[B
+	public fun isNull ()Z
 }
 
 public class io/debezium/connector/vitess/connection/VitessReplicationConnection : io/debezium/connector/vitess/connection/ReplicationConnection {
