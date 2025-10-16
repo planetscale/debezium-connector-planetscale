@@ -44,6 +44,7 @@ import javax.annotation.Nullable;
 /** Used by {@link RelationalChangeRecordEmitter} to convert Java value to Connect value */
 @SuppressWarnings({"unused"})
 public class VitessValueConverter extends JdbcValueConverters {
+  private static final boolean ENABLE_BINLOG_SHIM = false;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(VitessValueConverter.class);
   private static final Logger INVALID_VALUE_LOGGER = LoggerFactory.getLogger(VitessValueConverter.class.getName() + ".invalid_value");
@@ -114,7 +115,7 @@ public class VitessValueConverter extends JdbcValueConverters {
   // Implements additional builder support for the Planetscale adapter.
   private @Nullable SchemaBuilder superOrShimmedBuilder(Column inputColumn) {
     SchemaBuilder superBuilder = super.schemaBuilder(inputColumn);
-    if (superBuilder == null) {
+    if (ENABLE_BINLOG_SHIM && superBuilder == null) {
       superBuilder = binlogConverters.schemaBuilder(inputColumn);
     }
     return superBuilder;
@@ -135,6 +136,9 @@ public class VitessValueConverter extends JdbcValueConverters {
     }
     if (matches(typeName, Query.Type.YEAR.name())) {
       return Year.builder();
+    }
+    if (matches(typeName, Query.Type.GEOMETRY.name())) {
+      return io.debezium.data.geometry.Geometry.builder();
     }
 
     if (matches(typeName, Query.Type.UINT64.name())) {
@@ -183,7 +187,7 @@ public class VitessValueConverter extends JdbcValueConverters {
   // Implements additional type support for the Planetscale adapter.
   private @Nullable ValueConverter superOrShimmedConverter(Column inputColumn, Field fieldDefn) {
     ValueConverter superConverter = super.converter(inputColumn, fieldDefn);
-    if (superConverter == null) {
+    if (ENABLE_BINLOG_SHIM && superConverter == null) {
       superConverter = binlogConverters.converter(inputColumn, fieldDefn);
     }
     return superConverter;
@@ -205,6 +209,9 @@ public class VitessValueConverter extends JdbcValueConverters {
     }
     if (matches(typeName, Query.Type.SET.name())) {
       return (data) -> convertSetToString(column.enumValues(), column, fieldDefn, data);
+    }
+    if (matches(typeName, Query.Type.GEOMETRY.name())) {
+      return (data) -> convertGeometry(column, fieldDefn, data);
     }
 
     if (matches(typeName, Query.Type.UINT64.name())) {
@@ -460,5 +467,19 @@ public class VitessValueConverter extends JdbcValueConverters {
       return null;
     }
     return Timestamp.valueOf(datetimeString);
+  }
+
+
+  /**
+   * Converts a Geometry value object to the expected type for Vitess; for now, this just hands back the object that was
+   * decoded already.
+   *
+   * @param column the column definition describing the {@code data} value; never null
+   * @param fieldDefn the field definition; never null
+   * @param data the data object (already a struct)
+   * @return the converted value, or null if the conversion could not be made
+   */
+  protected Object convertGeometry(Column column, Field fieldDefn, Object data) {
+    return data;
   }
 }
