@@ -14,10 +14,7 @@ import java.util.stream.Collectors;
 import com.planetscale.debezium.mtls.TlsUtils;
 
 import io.grpc.*;
-import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
-import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -361,6 +358,11 @@ public class VitessReplicationConnection implements ReplicationConnection {
     String password = config.getVtgatePassword();
     Objects.requireNonNull(user, "vtgate username must not be null");
     Objects.requireNonNull(password, "vtgate password must not be null");
+    if (user.isEmpty() || user.isBlank()) {
+      throw new IllegalArgumentException("Cannot connect to Planetscale with empty or blank username");
+    } else if (password.isEmpty() || password.isBlank()) {
+      throw new IllegalArgumentException("Cannot connect to Planetscale with empty or blank password");
+    }
     String preimage = user + ":" + password;
     String encoded = Base64.getEncoder().encodeToString(preimage.getBytes());
     return "Basic " + encoded;
@@ -368,10 +370,6 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
   @SuppressWarnings("deprecation")
   private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize) {
-    String authHeader = buildAuthHeaderValue();
-    Metadata headers = new Metadata();
-    headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), authHeader);
-
     // mTLS detection happens based on custom properties being set, because the upstream Vitess adapter does not yet
     // ship support for it.
     ChannelCredentials channelCredentials = null;
@@ -381,17 +379,25 @@ public class VitessReplicationConnection implements ReplicationConnection {
       channelCredentials = TlsUtils.INSTANCE.tlsCredential(rawConfig);
     }
 
+    String authHeader = buildAuthHeaderValue();
+    Metadata headers = new Metadata();
+    if (!authHeader.isEmpty()) {
+      headers.put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), authHeader);
+    } else {
+      throw new IllegalStateException("Auth header was empty");
+    }
+
     final NettyChannelBuilder channelBuilder;
     if (channelCredentials != null) {
       channelBuilder = NettyChannelBuilder.forAddress(vtgateHost, vtgatePort, channelCredentials);
     } else {
-      channelBuilder = NettyChannelBuilder.forAddress(vtgateHost, vtgatePort);
+      channelBuilder = NettyChannelBuilder.forAddress(vtgateHost, vtgatePort)
+              .useTransportSecurity();
     }
     return channelBuilder
             .maxInboundMessageSize(maxInboundMessageSize)
             .keepAliveTime(config.getKeepaliveInterval().toMillis(), TimeUnit.MILLISECONDS)
             .intercept(MetadataUtils.newAttachHeadersInterceptor(headers))
-            .useTransportSecurity()
             .build();
   }
 
