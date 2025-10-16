@@ -154,6 +154,7 @@ val debeziumClasses by tasks.registering(Copy::class) {
   }
   into(layout.buildDirectory.dir("debezium/classes"))
   include("**/*.class")
+  exclude("**/VitessColumnValue*")  // fix: geom and custom types
   exclude("**/VitessReplicationConnection*")  // fix: private `newChannel` override
   exclude("**/VitessValueConverter*")  // fix: custom type support (geo)
   exclude("**/VitessDatabaseSchema*")  // fix: custom type support (geo)
