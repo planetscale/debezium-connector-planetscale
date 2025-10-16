@@ -154,11 +154,11 @@ val debeziumClasses by tasks.registering(Copy::class) {
   }
   into(layout.buildDirectory.dir("debezium/classes"))
   include("**/*.class")
-  exclude("**/VitessColumnValue*")  // fix: geom and custom types
-  exclude("**/VitessReplicationConnection*")  // fix: private `newChannel` override
-  exclude("**/VitessValueConverter*")  // fix: custom type support (geo)
-  exclude("**/VitessDatabaseSchema*")  // fix: custom type support (geo)
-  exclude("**/VitessConnectorConfig*")  // fix: overrides for cell hint, etc
+  exclude("**/VitessColumnValue*") // fix: geom and custom types
+  exclude("**/VitessReplicationConnection*") // fix: private `newChannel` override
+  exclude("**/VitessValueConverter*") // fix: custom type support (geo)
+  exclude("**/VitessDatabaseSchema*") // fix: custom type support (geo)
+  exclude("**/VitessConnectorConfig*") // fix: overrides for cell hint, etc
   finalizedBy(debeziumClassesPatched)
 }
 
@@ -195,8 +195,8 @@ val assembleConnectDoc by tasks.registering(Copy::class) {
 // `lib/` directory includes the transformed vitess connector and all dependencies
 val assembleConnectLib by tasks.registering(Copy::class) {
   from(kafkaConnect) {
-    exclude("debezium-connector-vitess-*.jar")  // packaged with final planetscale connector
-    exclude("netty-transport-native-unix-common*.jar")  // causes UDS compat issues
+    exclude("debezium-connector-vitess-*.jar") // packaged with final planetscale connector
+    exclude("netty-transport-native-unix-common*.jar") // causes UDS compat issues
   }
   from(tasks.shadowJar)
   into(connectOut.get().dir("lib"))
@@ -217,7 +217,7 @@ val assembleConnectLayout by tasks.registering(Copy::class) {
 
 val assembleConnectDist by tasks.registering(Copy::class) {
   from(connectOut.get())
-  into(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-${version}"))
+  into(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-$version"))
 
   dependsOn(
     assembleConnectDoc,
@@ -229,9 +229,9 @@ val assembleConnectDist by tasks.registering(Copy::class) {
 val assembleConnectZip by tasks.registering(Zip::class) {
   group = "build"
   description = "Assemble the connector distribution ZIP for Kafka Connect"
-  archiveFileName.set("planetscale-debezium-connector-planetscale-${version}.zip")
+  archiveFileName.set("planetscale-debezium-connector-planetscale-$version.zip")
   destinationDirectory.set(connectDistRoot.get())
-  from(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-${version}"))
+  from(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-$version"))
   dependsOn(assembleConnectDist)
 }
 

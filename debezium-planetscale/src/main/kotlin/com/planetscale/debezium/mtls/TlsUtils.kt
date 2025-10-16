@@ -49,7 +49,8 @@ internal object TlsUtils {
   // Enumerates supported keystore types.
   internal enum class KeystoreType {
     JKS,
-    P12;
+    P12,
+    ;
 
     val code: String get() = when (this) {
       JKS -> KEY_TYPE_JKS
@@ -76,15 +77,15 @@ internal object TlsUtils {
   }
 
   // Sentinel object used when no password is available or provided.
-  internal object NoPassword: Password {
+  internal object NoPassword : Password {
     override val isPresent: Boolean get() = false
     override fun consume() = error("No password present")
   }
 
   // Mutable password holder which can be zeroed after consumption.
-  private class PasswordHolder private constructor (
+  private class PasswordHolder private constructor(
     private val password: CharArray,
-  ): Password {
+  ) : Password {
     override val isPresent: Boolean get() = true
 
     override fun consume(): CharArray = password.copyOf().also {
@@ -92,7 +93,7 @@ internal object TlsUtils {
     }
 
     companion object {
-      @JvmStatic fun fromString(value: String):  PasswordHolder = PasswordHolder(value.toCharArray())
+      @JvmStatic fun fromString(value: String): PasswordHolder = PasswordHolder(value.toCharArray())
     }
   }
 
@@ -110,9 +111,12 @@ internal object TlsUtils {
     stream: InputStream,
     password: Password,
   ): ChannelCredentials = KeyStore.getInstance(KEY_TYPE_JKS).let { store ->
-    finalizeKeyManager(store, password.consumeSafe().also { pass ->
-      store.load(stream, pass)
-    })
+    finalizeKeyManager(
+      store,
+      password.consumeSafe().also { pass ->
+        store.load(stream, pass)
+      },
+    )
   }
 
   // Obtain credentials (a certificate and private key) from a P12 (PKCS#12) file.
@@ -120,9 +124,12 @@ internal object TlsUtils {
     stream: InputStream,
     password: Password,
   ): ChannelCredentials = KeyStore.getInstance(KEY_TYPE_P12).let { store ->
-    finalizeKeyManager(store, password.consumeSafe().also { pass ->
-      store.load(stream, pass)
-    })
+    finalizeKeyManager(
+      store,
+      password.consumeSafe().also { pass ->
+        store.load(stream, pass)
+      },
+    )
   }
 
   // Load trust store information.
