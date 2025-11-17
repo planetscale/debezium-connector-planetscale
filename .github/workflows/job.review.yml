@@ -69,7 +69,7 @@ jobs:
           java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '21' }}
           distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
       - name: "Setup: Elide"
-        uses: elide-dev/setup-elide@a62ce5ca052e16ecd1c6eb3f2efde2e0228d5e80 # main
+        uses: elide-dev/setup-elide@d91d5859c0722417ea1ac4c682382ac8a6622b80 # main
       - name: "Setup: Gradle"
         uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v4
         with:
