@@ -154,20 +154,20 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
       - name: "Artifact: Maven Repository"
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: maven-repository-${{ steps.vars.outputs.sha_short || 'latest' }}
           path: ./debezium-planetscale/build/m2
           retention-days: 1
           compression-level: 2
       - name: "Artifact: Shadow JAR"
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: connector-${{ steps.vars.outputs.sha_short || 'latest' }}.jar
           path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
           compression-level: 0
       - name: "Artifact: SBOM"
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: sbom-${{ steps.vars.outputs.sha_short || 'latest' }}.spdx.json
           path: ./debezium-planetscale/build/spdx/release.spdx.json
