@@ -120,6 +120,8 @@ dependencies {
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
+  testImplementation(libs.grpc.netty.shaded)
+  testImplementation(libs.grpc.stub)
   testImplementation(debezium.connectors.vitess)
   testImplementation(debezium.connectors.mysql)
   testRuntimeOnly(libs.junit.platform.launcher)
