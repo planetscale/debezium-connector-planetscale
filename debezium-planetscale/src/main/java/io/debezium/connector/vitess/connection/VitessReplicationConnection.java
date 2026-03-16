@@ -66,8 +66,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
    */
   public Vtgate.ExecuteResponse execute(String sqlStatement) {
     LOGGER.debug("Executing sqlStament {}", sqlStatement);
-    ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
-    managedChannel.compareAndSet(null, channel);
+    ManagedChannel channel = getOrReplaceChannel();
 
     Vtgate.ExecuteRequest request = Vtgate.ExecuteRequest.newBuilder()
             .setQuery(Proto.bindQuery(sqlStatement, Collections.emptyMap()))
@@ -87,8 +86,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
   public Vtgate.ExecuteResponse execute(String sqlStatement, String shard) {
     LOGGER.info("Executing sqlStament {}", sqlStatement);
-    ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
-    managedChannel.compareAndSet(null, channel);
+    ManagedChannel channel = getOrReplaceChannel();
 
     String target = String.format("%s:%s@%s", config.getKeyspace(), shard, config.getTabletType());
     Vtgate.Session session = Vtgate.Session.newBuilder().setTargetString(target).setAutocommit(true).build();
@@ -105,8 +103,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
           Vgtid vgtid, ReplicationMessageProcessor processor, AtomicReference<Throwable> error) {
     Objects.requireNonNull(vgtid);
 
-    ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
-    managedChannel.compareAndSet(null, channel);
+    ManagedChannel channel = getOrReplaceChannel();
 
     VitessGrpc.VitessStub stub = newStub(channel);
 
@@ -378,6 +375,15 @@ public class VitessReplicationConnection implements ReplicationConnection {
     return "Basic " + encoded;
   }
 
+  private ManagedChannel getOrReplaceChannel() {
+    ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
+    ManagedChannel old = managedChannel.getAndSet(channel);
+    if (old != null) {
+      old.shutdownNow();
+    }
+    return channel;
+  }
+
   @SuppressWarnings("deprecation")
   private ManagedChannel newChannel(String vtgateHost, int vtgatePort, int maxInboundMessageSize) {
     // mTLS detection happens based on custom properties being set, because the upstream Vitess adapter does not yet
@@ -415,9 +421,14 @@ public class VitessReplicationConnection implements ReplicationConnection {
   @Override
   public void close() throws Exception {
     LOGGER.info("Closing replication connection");
-    managedChannel.get().shutdownNow();
+    ManagedChannel channel = managedChannel.get();
+    if (channel == null) {
+      LOGGER.info("No channel to close.");
+      return;
+    }
+    channel.shutdownNow();
     LOGGER.trace("VStream GRPC channel shutdownNow is invoked.");
-    if (managedChannel.get().awaitTermination(5, TimeUnit.SECONDS)) {
+    if (channel.awaitTermination(5, TimeUnit.SECONDS)) {
       LOGGER.info("VStream GRPC channel is shutdown in time.");
     }
     else {
@@ -473,7 +484,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
       // If offset storage per task is disabled, then find the vgtid elsewhere
       if (config.getShard() == null || config.getShard().isEmpty()) {
         // This case is not supported by the Vitess, so our workaround is to get all the shards from vtgate.
-        if (config.getVgtid() == Vgtid.EMPTY_GTID) {
+        if (Vgtid.EMPTY_GTID.equals(config.getVgtid())) {
           List<String> shards = new VitessMetadata(config).getShards();
           List<String> gtids = Collections.nCopies(shards.size(), config.getVgtid());
           vgtid = buildVgtid(config.getKeyspace(), shards, gtids);
@@ -490,8 +501,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
         List<String> shards = config.getShard();
         String vgtidString = config.getVgtid();
         List<String> gtids;
-        if (vgtidString == Vgtid.CURRENT_GTID ||
-                vgtidString == Vgtid.EMPTY_GTID) {
+        if (Vgtid.CURRENT_GTID.equals(vgtidString) ||
+                Vgtid.EMPTY_GTID.equals(vgtidString)) {
           gtids = Collections.nCopies(shards.size(), vgtidString);
           vgtid = buildVgtid(config.getKeyspace(), shards, gtids);
         }

@@ -7,6 +7,6 @@
 package com.planetscale.debezium
 
 object PlanetscaleConstants {
-  val HOST: String = "https://connect.psdb.cloud"
+  val HOST: String = "connect.psdb.cloud"
   val PORT: Int = 443
 }

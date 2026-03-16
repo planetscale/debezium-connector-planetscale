@@ -87,8 +87,8 @@ public class VitessColumnValue implements ReplicationMessage.ColumnValue<byte[]>
       return asGeometry();
     }
     if (includeUnknownDatatypes) {
-      LOGGER.warn("process unknown column type {} as string", vitessType);
-      return asString();
+      LOGGER.warn("process unknown column type {} as bytes", vitessType);
+      return getRawValue();
     }
     else {
       LOGGER.warn("ignore unknown column type {}", vitessType);

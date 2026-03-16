@@ -479,9 +479,14 @@ public class VitessValueConverter extends JdbcValueConverters {
    * @return The java.sql.Timestamp
    */
   public static Timestamp stringToTimestamp(String datetimeString) {
-    if (datetimeString.matches("^\\d{4}-00-00.*$")) {
-      INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
-      return null;
+    final Matcher matcher = DATE_FIELD_PATTERN.matcher(datetimeString);
+    if (matcher.find()) {
+      final int month = Integer.parseInt(matcher.group(2));
+      final int day = Integer.parseInt(matcher.group(3));
+      if (month == 0 || day == 0) {
+        INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
+        return null;
+      }
     }
     return Timestamp.valueOf(datetimeString);
   }

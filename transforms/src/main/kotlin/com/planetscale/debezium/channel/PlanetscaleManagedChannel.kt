@@ -10,13 +10,13 @@ import com.planetscale.debezium.PlanetscaleConstants
 import io.debezium.annotation.VisibleForTesting
 import io.debezium.connector.vitess.VitessConnectorConfig
 import io.grpc.*
+import net.bytebuddy.implementation.bind.annotation.FieldValue
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-// Constants used for channel initialization and configuration.
-// private const val CONFIG_FIELD = "config"
+private const val CONFIG_FIELD = "config"
 private const val AUTHORIZATION_HEADER = "authorization"
 private const val BASIC_AUTH = "Basic"
 
@@ -31,22 +31,22 @@ private const val BASIC_AUTH = "Basic"
     ManagedChannelBuilder.forAddress(
       host ?: PlanetscaleConstants.HOST,
       port ?: PlanetscaleConstants.PORT,
-    ).also {
-      // mount configuration for adapter
-      // tmp: commented until needed for mTLS
-      // this.config = config
-    }
+    )
 
   @JvmStatic fun newChannel(
+    @FieldValue(CONFIG_FIELD) callerConfig: VitessConnectorConfig,
     host: String?,
     port: Int?,
     maxMessageSize: Int,
-  ): ManagedChannel = managedChannelBuilder(host, port)
-    .useTransportSecurity()
-    .maxInboundMessageSize(maxMessageSize)
-    .intercept(this)
-    .keepAliveTime(config.keepaliveInterval.toMillis(), TimeUnit.MILLISECONDS)
-    .build()
+  ): ManagedChannel {
+    this.config = callerConfig
+    return managedChannelBuilder(host, port)
+      .useTransportSecurity()
+      .maxInboundMessageSize(maxMessageSize)
+      .intercept(this)
+      .keepAliveTime(config.keepaliveInterval.toMillis(), TimeUnit.MILLISECONDS)
+      .build()
+  }
 
   override fun <ReqT : Any?, RespT : Any?> interceptCall(
     method: MethodDescriptor<ReqT?, RespT?>,

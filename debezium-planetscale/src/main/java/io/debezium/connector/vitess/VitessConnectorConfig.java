@@ -709,8 +709,9 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
   private static int validateInheritEpoch(Configuration config, Field field, ValidationOutput problems) {
     Boolean inheritEpoch = config.getBoolean(field);
     String factory = config.getString(CommonConnectorConfig.TRANSACTION_METADATA_FACTORY);
-    if (inheritEpoch && !factory.equals(VitessOrderedTransactionMetadataFactory.class.getName())) {
+    if (inheritEpoch && !VitessOrderedTransactionMetadataFactory.class.getName().equals(factory)) {
       problems.accept(field, inheritEpoch, "Inherit epoch cannot be enabled without VitessOrderedTransactionMetadataFactory");
+      return 1;
     }
     return 0;
   }
