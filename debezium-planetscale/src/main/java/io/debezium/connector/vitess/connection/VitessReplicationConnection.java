@@ -26,11 +26,11 @@ import io.debezium.connector.vitess.VitessDatabaseSchema;
 import io.debezium.connector.vitess.VitessMetadata;
 import io.debezium.connector.vitess.pipeline.txmetadata.ShardEpochMap;
 import io.debezium.util.Strings;
-import io.grpc.stub.AbstractStub;
+
 import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import io.vitess.client.Proto;
-import io.vitess.client.grpc.StaticAuthCredentials;
+
 import io.vitess.proto.Topodata;
 import io.vitess.proto.Vtgate;
 import io.vitess.proto.grpc.VitessGrpc;
@@ -343,21 +343,11 @@ public class VitessReplicationConnection implements ReplicationConnection {
   }
 
   private VitessGrpc.VitessStub newStub(ManagedChannel channel) {
-    VitessGrpc.VitessStub stub = VitessGrpc.newStub(channel);
-    return withCredentials(stub);
+    return VitessGrpc.newStub(channel);
   }
 
   private VitessGrpc.VitessBlockingStub newBlockingStub(ManagedChannel channel) {
-    VitessGrpc.VitessBlockingStub stub = VitessGrpc.newBlockingStub(channel);
-    return withCredentials(stub);
-  }
-
-  private <T extends AbstractStub<T>> T withCredentials(T stub) {
-    if (config.getVtgateUsername() != null && config.getVtgatePassword() != null) {
-      LOGGER.info("Use authenticated vtgate grpc.");
-      stub = stub.withCallCredentials(new StaticAuthCredentials(config.getVtgateUsername(), config.getVtgatePassword()));
-    }
-    return stub;
+    return VitessGrpc.newBlockingStub(channel);
   }
 
   private String buildAuthHeaderValue() {

@@ -327,6 +327,11 @@ tasks {
     configureShadowedJar(classifier = "all")
   }
 
+  named("test", Test::class) {
+    outputs.cacheIf { false }
+    outputs.upToDateWhen { false }
+  }
+
   named("run", JavaExec::class) {
     dependsOn(shadowJar)
 
