@@ -5,6 +5,7 @@ import io.grpc.Metadata
 import io.grpc.Server
 import io.grpc.ServerCall
 import io.grpc.ServerCallHandler
+import io.grpc.ServerCredentials
 import io.grpc.ServerInterceptor
 import io.grpc.Status
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
@@ -19,7 +20,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * A configurable mock gRPC server implementing the VStream service for testing.
  */
-class MockVStreamServer : Closeable {
+class MockVStreamServer(
+  private val serverCredentials: ServerCredentials? = null,
+) : Closeable {
   val port: Int = findAvailablePort()
   val receivedRequests: CopyOnWriteArrayList<Vtgate.VStreamRequest> = CopyOnWriteArrayList()
   val receivedMetadata: CopyOnWriteArrayList<Metadata> = CopyOnWriteArrayList()
@@ -70,11 +73,14 @@ class MockVStreamServer : Closeable {
     }
   }
 
-  private val server: Server = NettyServerBuilder
-    .forPort(port)
-    .addService(vitessImpl)
-    .intercept(metadataInterceptor)
-    .build()
+  private val server: Server = run {
+    val builder = if (serverCredentials != null) {
+      NettyServerBuilder.forPort(port, serverCredentials)
+    } else {
+      NettyServerBuilder.forPort(port)
+    }
+    builder.addService(vitessImpl).intercept(metadataInterceptor).build()
+  }
 
   fun enqueueEvents(vararg events: VEvent) {
     val response = Vtgate.VStreamResponse.newBuilder()

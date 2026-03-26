@@ -8,7 +8,6 @@
 [versions]
 bytebuddy = "1.18.3"
 commons-math3 = "3.6.1"
-detekt = "1.23.8"
 googleJavaFormat = "1.28.0"
 grpc = "1.56.1"
 guava = "33.4.8-jre"
@@ -61,9 +60,6 @@ netty-transport-epoll = { module = "io.netty:netty-transport-native-epoll", vers
 
 # Plugins.
 plugin-bytebuddy = { module = "net.bytebuddy:byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
-plugin-detekt = { module = "io.gitlab.arturbosch.detekt:io.gitlab.arturbosch.detekt.gradle.plugin", version.ref = "detekt" }
-plugin-detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
-plugin-detekt-rules-libraries = { module = "io.gitlab.arturbosch.detekt:detekt-rules-libraries", version.ref = "detekt" }
 plugin-kotlin-jvm = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 plugin-kotlin-atomicfu = { module = "org.jetbrains.kotlin.plugin.atomicfu:org.jetbrains.kotlin.plugin.atomicfu.gradle.plugin", version.ref = "kotlin" }
 plugin-kotlin-powerAssert = { module = "org.jetbrains.kotlin.plugin.power-assert:org.jetbrains.kotlin.plugin.power-assert.gradle.plugin", version.ref = "kotlin" }
@@ -80,7 +76,6 @@ planetscale-debezium-transforms = { module = "com.planetscale.labs:transforms" }
 
 [plugins]
 bytebuddy = { id = "net.bytebuddy.byte-buddy-gradle-plugin", version.ref = "bytebuddy" }
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-powerAssert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 kotlinx-abicheck = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "kotlinx-abicheck" }
