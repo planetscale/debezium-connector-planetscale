@@ -41,7 +41,7 @@ import kotlin.io.path.readText
 // Runtime JVM target.
 private const val JVM_TARGET = "17"
 private const val JVM_TOOLCHAIN = "25"
-private const val JVM_TOOLCHAIN_VENDOR = "Oracle"
+private const val JVM_TOOLCHAIN_VENDOR = "GraalVM Community"
 
 // Minimum line coverage percentage to enforce.
 private const val MINIMUM_COVERAGE = 1
@@ -174,7 +174,7 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
         targetCompatibility = JavaVersion.toVersion(JVM_TARGET)
 
         toolchain {
-          vendor.set(JvmVendorSpec.ORACLE)
+          vendor.set(JvmVendorSpec.of(JVM_TOOLCHAIN_VENDOR))
           languageVersion.set(JavaLanguageVersion.of(JVM_TOOLCHAIN))
           nativeImageCapable.set(true)
         }
