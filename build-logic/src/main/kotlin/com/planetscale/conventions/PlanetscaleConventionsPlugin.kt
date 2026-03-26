@@ -40,7 +40,7 @@ import kotlin.io.path.readText
 
 // Runtime JVM target.
 private const val JVM_TARGET = "17"
-private const val JVM_TOOLCHAIN = "24"
+private const val JVM_TOOLCHAIN = "25"
 private const val JVM_TOOLCHAIN_VENDOR = "Oracle"
 
 // Minimum line coverage percentage to enforce.
