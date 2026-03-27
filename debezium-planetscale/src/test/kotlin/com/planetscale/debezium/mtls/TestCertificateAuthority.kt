@@ -175,8 +175,14 @@ object TestCertificateAuthority {
 
   private fun Path.str(): String = toAbsolutePath().toString()
 
+  private val keytoolPath: String by lazy {
+    val javaHome = System.getProperty("java.home")
+    val keytool = java.nio.file.Path.of(javaHome, "bin", "keytool")
+    if (java.nio.file.Files.isExecutable(keytool)) keytool.toString() else "keytool"
+  }
+
   private fun keytool(vararg args: String) {
-    val process = ProcessBuilder("keytool", *args)
+    val process = ProcessBuilder(keytoolPath, *args)
       .redirectErrorStream(true)
       .start()
     val output = process.inputStream.bufferedReader().readText()

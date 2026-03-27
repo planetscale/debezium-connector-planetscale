@@ -108,7 +108,7 @@ class MockVStreamServer(
 
   override fun close() {
     server.shutdownNow()
-    server.awaitTermination()
+    server.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)
   }
 
   fun reset() {

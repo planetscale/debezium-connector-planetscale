@@ -214,6 +214,12 @@ class TlsUtilsTest {
   companion object {
     private const val KEYSTORE_PASSWORD = "testpass"
 
+    private val keytoolPath: String by lazy {
+      val javaHome = System.getProperty("java.home")
+      val keytool = java.nio.file.Path.of(javaHome, "bin", "keytool")
+      if (java.nio.file.Files.isExecutable(keytool)) keytool.toString() else "keytool"
+    }
+
     /**
      * Generate a self-signed keystore using keytool (ships with JDK).
      */
@@ -224,7 +230,7 @@ class TlsUtilsTest {
       val storeType = if (type == "JKS") "JKS" else "PKCS12"
 
       val process = ProcessBuilder(
-        "keytool",
+        keytoolPath,
         "-genkeypair",
         "-keystore", file.absolutePath,
         "-storetype", storeType,

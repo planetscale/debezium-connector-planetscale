@@ -44,7 +44,9 @@ class MtlsIntegrationTest {
   fun tearDown() {
     mockServer.close()
     // Clean up temp cert directory
-    Files.walk(certs.dir).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+    Files.walk(certs.dir).use { paths ->
+      paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+    }
   }
 
   /** Build a Debezium [Configuration] with mTLS properties pointing to the test certs. */
@@ -237,7 +239,9 @@ class MtlsIntegrationTest {
         channel.shutdownNow()
       }
     } finally {
-      Files.walk(rogue.dir).sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+      Files.walk(rogue.dir).use { paths ->
+        paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+      }
     }
   }
 }
