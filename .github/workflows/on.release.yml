@@ -1,0 +1,42 @@
+name: "Release"
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: "Build"
+    uses: ./.github/workflows/job.build.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      checks: write
+    with:
+      release: true
+      provenance: true
+
+  release:
+    name: "Release"
+    needs: [build]
+    uses: ./.github/workflows/job.release.yml
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      tag: ${{ github.ref_name }}
+      sha: ${{ github.sha }}

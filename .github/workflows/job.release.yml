@@ -1,0 +1,145 @@
+name: "Release"
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      tag:
+        required: true
+        type: string
+        description: "Release tag (e.g. v3.2.1-r1)"
+      sha:
+        required: true
+        type: string
+        description: "Git SHA for the release"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: "Publish"
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/debezium-connector-planetscale
+    steps:
+      - name: "Setup: Harden Runner"
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
+      - name: "Setup: Checkout"
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: "Setup: JVM"
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
+        with:
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm' }}
+
+      - name: "Setup: Gradle"
+        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v4
+        with:
+          cache-read-only: true
+
+      - name: "Build: Gradle"
+        run: ./gradlew -Pplanetscale.release=true -Pplanetscale.sigstore=true build test check connectDist publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: "Outputs: Artifact Paths"
+        id: paths
+        run: |
+          JAR=$(ls ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar | head -1)
+          ZIP=$(ls ./debezium-planetscale/build/connect/dist/*.zip | head -1)
+          SBOM=./debezium-planetscale/build/spdx/release.spdx.json
+          echo "jar=$JAR" >> $GITHUB_OUTPUT
+          echo "jar_name=$(basename $JAR)" >> $GITHUB_OUTPUT
+          echo "zip=$ZIP" >> $GITHUB_OUTPUT
+          echo "zip_name=$(basename $ZIP)" >> $GITHUB_OUTPUT
+          echo "sbom=$SBOM" >> $GITHUB_OUTPUT
+
+      # -- GitHub Release --
+
+      - name: "Release: Create"
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.paths.outputs.jar }}
+            ${{ steps.paths.outputs.zip }}
+            ${{ steps.paths.outputs.sbom }}
+
+      # -- Attestations (JAR + ZIP) --
+
+      - name: "Attest: JAR Provenance"
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
+        with:
+          subject-path: ${{ steps.paths.outputs.jar }}
+
+      - name: "Attest: Connect ZIP Provenance"
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
+        with:
+          subject-path: ${{ steps.paths.outputs.zip }}
+
+      - name: "Attest: SBOM"
+        uses: actions/attest-sbom@115c3be05ff3974bcbd0c86beeaead2349c165fc # v2
+        with:
+          subject-path: ${{ steps.paths.outputs.jar }}
+          sbom-path: ${{ steps.paths.outputs.sbom }}
+
+      # -- Container Image --
+
+      - name: "Container: Login to GHCR"
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Container: Setup Buildx"
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: "Container: Metadata"
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
+            type=raw,value=latest
+
+      - name: "Container: Build and Push"
+        id: push
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          provenance: true
+          sbom: true
+
+      - name: "Attest: Container Provenance"
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

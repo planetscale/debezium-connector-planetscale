@@ -141,6 +141,17 @@ publishing {
   }
   repositories {
     maven("file://${rootProject.layout.buildDirectory.dir("m2").get().asFile.absolutePath}")
+    val ghRepo = System.getenv("GITHUB_REPOSITORY")
+    if (ghRepo != null) {
+      maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/$ghRepo")
+        credentials {
+          username = System.getenv("GITHUB_ACTOR") ?: ""
+          password = System.getenv("GITHUB_TOKEN") ?: ""
+        }
+      }
+    }
   }
 }
 

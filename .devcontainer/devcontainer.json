@@ -8,12 +8,13 @@
     "memory": "32gb",
     "storage": "128gb"
   },
-  "updateContentCommand": "git pull && ./gradlew --no-daemon build test check --refresh-dependencies",
+  "updateContentCommand": "git pull && ./gradlew --no-daemon build test check connectDist --refresh-dependencies",
+  "postCreateCommand": "./gradlew --no-daemon build test check",
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/java:1": {
-      "version": "24.0.1",
+      "version": "25",
       "jdkDistro": "graal"
     },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
