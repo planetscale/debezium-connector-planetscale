@@ -98,7 +98,7 @@ jobs:
           subject-path: ${{ steps.paths.outputs.zip }}
 
       - name: "Attest: SBOM"
-        uses: actions/attest-sbom@115c3be05ff3974bcbd0c86beeaead2349c165fc # v2
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
         with:
           subject-path: ${{ steps.paths.outputs.jar }}
           sbom-path: ${{ steps.paths.outputs.sbom }}
