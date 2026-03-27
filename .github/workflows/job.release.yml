@@ -64,14 +64,30 @@ jobs:
       - name: "Outputs: Artifact Paths"
         id: paths
         run: |
-          JAR=$(ls ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar | head -1)
+          # Main JAR (exclude -all.jar variant)
+          JAR=$(ls ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar | grep -v '\-all\.jar' | head -1)
           ZIP=$(ls ./debezium-planetscale/build/connect/dist/*.zip | head -1)
           SBOM=./debezium-planetscale/build/spdx/release.spdx.json
+
           echo "jar=$JAR" >> $GITHUB_OUTPUT
-          echo "jar_name=$(basename $JAR)" >> $GITHUB_OUTPUT
           echo "zip=$ZIP" >> $GITHUB_OUTPUT
-          echo "zip_name=$(basename $ZIP)" >> $GITHUB_OUTPUT
           echo "sbom=$SBOM" >> $GITHUB_OUTPUT
+
+      - name: "Outputs: Checksums"
+        id: checksums
+        run: |
+          STAGING=$(mktemp -d)
+          cp "${{ steps.paths.outputs.jar }}" "$STAGING/"
+          cp "${{ steps.paths.outputs.zip }}" "$STAGING/"
+          cp "${{ steps.paths.outputs.sbom }}" "$STAGING/"
+
+          # Collect sigstore bundles if present
+          find ./debezium-planetscale/build -name "*.sigstore.json" -exec cp {} "$STAGING/" \;
+
+          # Generate checksums
+          cd "$STAGING"
+          sha256sum * > SHA256SUMS.txt
+          echo "staging=$STAGING" >> $GITHUB_OUTPUT
 
       # -- GitHub Release --
 
@@ -80,10 +96,7 @@ jobs:
         with:
           tag_name: ${{ inputs.tag }}
           generate_release_notes: true
-          files: |
-            ${{ steps.paths.outputs.jar }}
-            ${{ steps.paths.outputs.zip }}
-            ${{ steps.paths.outputs.sbom }}
+          files: ${{ steps.checksums.outputs.staging }}/*
 
       # -- Attestations (JAR + ZIP) --
 
