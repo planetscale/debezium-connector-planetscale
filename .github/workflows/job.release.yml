@@ -88,16 +88,19 @@ jobs:
       # -- Attestations (JAR + ZIP) --
 
       - name: "Attest: JAR Provenance"
+        continue-on-error: true # requires public repo
         uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
         with:
           subject-path: ${{ steps.paths.outputs.jar }}
 
       - name: "Attest: Connect ZIP Provenance"
+        continue-on-error: true # requires public repo
         uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
         with:
           subject-path: ${{ steps.paths.outputs.zip }}
 
       - name: "Attest: SBOM"
+        continue-on-error: true # requires public repo
         uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
         with:
           subject-path: ${{ steps.paths.outputs.jar }}
@@ -138,6 +141,7 @@ jobs:
           sbom: true
 
       - name: "Attest: Container Provenance"
+        continue-on-error: true # requires public repo
         uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
