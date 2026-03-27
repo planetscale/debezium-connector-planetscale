@@ -758,7 +758,7 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
     Map<String, String> grpcHeadersMap = new HashMap<>();
 
     for (String header : grpcHeaders.split(CSV_DELIMITER)) {
-      String[] keyAndValue = header.split(":");
+      String[] keyAndValue = header.split(":", 2);
       if (keyAndValue.length == 2) {
         grpcHeadersMap.put(keyAndValue[0], keyAndValue[1]);
       }

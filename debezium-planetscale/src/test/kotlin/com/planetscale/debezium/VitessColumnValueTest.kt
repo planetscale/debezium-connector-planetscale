@@ -124,4 +124,36 @@ class VitessColumnValueTest {
     val cv = columnValue(bytes)
     assertContentEquals(bytes, cv.rawValue)
   }
+
+  @Test
+  fun `asGeometry with null value returns null`() {
+    val cv = columnValue(null)
+    assertNull(cv.asGeometry())
+  }
+
+  @Test
+  fun `asGeometry with LINESTRING WKB`() {
+    // WKB LINESTRING: endian(1) + type(4) + count(4) + 2 points * 16 = 41 bytes
+    val buf = java.nio.ByteBuffer.allocate(41).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+    buf.put(1) // little-endian
+    buf.putInt(2) // WKB type: LineString
+    buf.putInt(2) // 2 points
+    buf.putDouble(0.0); buf.putDouble(0.0) // point 1
+    buf.putDouble(10.0); buf.putDouble(10.0) // point 2
+    val cv = columnValue(buf.array())
+    val geom = cv.asGeometry()
+    assertNotNull(geom)
+  }
+
+  @Test
+  fun `asGeometry with POLYGON WKB`() {
+    // WKB POLYGON: endian(1) + type(4) + numRings(4) + numPoints(4) + 4 points * 16 = 77 bytes
+    val ring = listOf(0.0 to 0.0, 10.0 to 0.0, 10.0 to 10.0, 0.0 to 0.0)
+    val buf = java.nio.ByteBuffer.allocate(13 + 16 * ring.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+    buf.put(1); buf.putInt(3); buf.putInt(1); buf.putInt(ring.size)
+    for ((x, y) in ring) { buf.putDouble(x); buf.putDouble(y) }
+    val cv = columnValue(buf.array())
+    val geom = cv.asGeometry()
+    assertNotNull(geom)
+  }
 }

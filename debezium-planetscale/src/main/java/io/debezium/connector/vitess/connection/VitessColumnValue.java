@@ -78,6 +78,9 @@ public class VitessColumnValue implements ReplicationMessage.ColumnValue<byte[]>
   }
 
   public Struct asGeometry() {
+    if (isNull()) {
+      return null;
+    }
     return Geometry.createValue(Geometry.schema(), getRawValue(), null);
   }
 

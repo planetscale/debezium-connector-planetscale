@@ -9,6 +9,7 @@
 bytebuddy = "1.18.3"
 commons-math3 = "3.6.1"
 googleJavaFormat = "1.28.0"
+mysql-connector-j = "9.2.0"
 grpc = "1.56.1"
 guava = "33.4.8-jre"
 junit-jupiter-engine = "6.0.1"
@@ -45,6 +46,7 @@ grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
 grpc-auth = { module = "io.grpc:grpc-auth", version.ref = "grpc" }
 grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
 kafka-connect-api = { module = "org.apache.kafka:connect-api", version.ref = "kafka-connect-api" }
+mysql-connector-j = { module = "com.mysql:mysql-connector-j", version.ref = "mysql-connector-j" }
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }

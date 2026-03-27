@@ -117,7 +117,9 @@ dependencies {
   // test dependencies.
   testImplementation(platform(libs.testcontainers.bom))
   testImplementation(libs.testcontainers.junit.jupiter)
+  testImplementation(libs.testcontainers.core)
   testImplementation(libs.kotlin.test.junit5)
+  testRuntimeOnly(libs.mysql.connector.j)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
   testImplementation(libs.grpc.netty.shaded)

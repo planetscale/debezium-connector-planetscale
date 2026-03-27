@@ -143,6 +143,17 @@ class VitessConnectorConfigTest {
   }
 
   @Test
+  fun `grpc headers with colon in value parsed correctly`() {
+    val config = VitessConnectorConfig(
+      minimalConfig().with("vitess.grpc.headers", "Authorization:Bearer:token123,X-Key:val").build()
+    )
+    val headers = config.grpcHeaders
+    assertEquals(2, headers.size)
+    assertEquals("Bearer:token123", headers["Authorization"])
+    assertEquals("val", headers["X-Key"])
+  }
+
+  @Test
   fun `grpc headers empty when not set`() {
     val config = VitessConnectorConfig(minimalConfig().build())
     assertTrue(config.grpcHeaders.isEmpty())
