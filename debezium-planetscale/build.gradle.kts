@@ -155,9 +155,11 @@ publishing {
   }
 }
 
+val enableGpgSigning = enableSigning && (findProperty("signing.gnupg.keyName") != null || System.getenv("GPG_KEY_ID") != null)
+
 signing {
   useGpgCmd()
-  isRequired = enableSigning
+  isRequired = enableGpgSigning
   sign(publishing.publications["maven"])
   sign(configurations.runtimeElements.get())
 }
@@ -272,8 +274,8 @@ tasks {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
 
-  // Only enable signing when `planetscale.release` is set to true.
-  if (!enableSigning) {
+  // Only enable GPG signing when release mode AND a GPG key is configured.
+  if (!enableGpgSigning) {
     withType<Sign>().configureEach {
       enabled = false
     }
