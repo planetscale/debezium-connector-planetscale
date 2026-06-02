@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+#
+# Confluent Cloud smoke test — the real cloud gate. Uploads the built connector as a Custom
+# Connector plugin, creates a connector instance, polls until it reaches a terminal-ish state,
+# prints status/trace, then tears everything down. Intended for CI on release tags (the local
+# Docker harness in run.sh is the fast inner loop; this is the slower, authoritative check).
+#
+# Prereqs:
+#   * confluent CLI installed and logged in:           confluent login
+#   * an environment + Kafka cluster already exist in Confluent Cloud
+#   * admin RBAC (required to upload custom-connector archives)
+#
+# Required env vars:
+#   CONFLUENT_ENV         e.g. env-abc123      (confluent environment list)
+#   CONFLUENT_CLUSTER     e.g. lkc-abc123      (confluent kafka cluster list)
+#   KAFKA_API_KEY / KAFKA_API_SECRET           (for the connector's Kafka auth)
+#   PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE TOPIC_PREFIX   (PlanetScale connection)
+# Optional:
+#   PLUGIN_NAME (default planetscale-debezium)  CLOUD (default aws)  KEEP=1 (skip teardown)
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/../../.." && pwd)"
+ZIP_GLOB="$ROOT/debezium-planetscale/build/connect/dist/planetscale-debezium-connector-planetscale-*.zip"
+PLUGIN_NAME="${PLUGIN_NAME:-planetscale-debezium}"
+CLOUD="${CLOUD:-aws}"
+CONNECTOR_NAME="psdb-smoke-$$"
+
+need() { [ -n "${!1:-}" ] || { echo "!! missing required env var: $1" >&2; exit 2; }; }
+for v in CONFLUENT_ENV CONFLUENT_CLUSTER KAFKA_API_KEY KAFKA_API_SECRET PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE TOPIC_PREFIX; do need "$v"; done
+command -v confluent >/dev/null || { echo "!! confluent CLI not found"; exit 2; }
+
+# 1. Build the archive (assembleConnectZip → dist/*.zip) if needed.
+ZIP=$(ls $ZIP_GLOB 2>/dev/null | head -1 || true)
+if [ -z "$ZIP" ]; then
+  echo ">> Building connector archive..."
+  ( cd "$ROOT" && ./gradlew :debezium-planetscale:connectDist -x test --console=plain )
+  ZIP=$(ls $ZIP_GLOB | head -1)
+fi
+echo ">> Archive: $ZIP"
+
+cleanup() {
+  [ "${KEEP:-0}" = 1 ] && { echo ">> KEEP=1: leaving connector + plugin in place."; return; }
+  echo ">> Tearing down..."
+  [ -n "${LCC:-}" ] && confluent connect cluster delete "$LCC" --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" --force 2>/dev/null || true
+  [ -n "${CCP:-}" ] && confluent connect custom-plugin delete "$CCP" --force 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# 2. Upload the plugin (CLI handles the presigned-URL upload).
+echo ">> Uploading custom-connector plugin..."
+CCP=$(confluent connect custom-plugin create "$PLUGIN_NAME-$$" \
+  --plugin-file "$ZIP" \
+  --connector-type source \
+  --connector-class com.planetscale.debezium.PlanetscaleConnector \
+  --sensitive-properties database.password,kafka.api.secret \
+  --cloud "$CLOUD" \
+  --environment "$CONFLUENT_ENV" \
+  -o json | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+echo "   plugin id: $CCP"
+
+# 3. Create the connector instance.
+CFG=$(mktemp)
+cat > "$CFG" <<JSON
+{
+  "name": "$CONNECTOR_NAME",
+  "config": {
+    "connector.class": "com.planetscale.debezium.PlanetscaleConnector",
+    "confluent.connector.type": "CUSTOM",
+    "confluent.custom.plugin.id": "$CCP",
+    "kafka.auth.mode": "KAFKA_API_KEY",
+    "kafka.api.key": "$KAFKA_API_KEY",
+    "kafka.api.secret": "$KAFKA_API_SECRET",
+    "tasks.max": "1",
+    "topic.prefix": "$TOPIC_PREFIX",
+    "database.hostname": "$PSDB_HOST",
+    "database.port": "443",
+    "database.user": "$PSDB_USER",
+    "database.password": "$PSDB_PASSWORD",
+    "snapshot.mode": "initial",
+    "vitess.tablet.type": "REPLICA",
+    "vitess.keyspace": "$PSDB_KEYSPACE"
+  }
+}
+JSON
+echo ">> Creating connector $CONNECTOR_NAME..."
+confluent connect cluster create --config-file "$CFG" --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json
+LCC=$(confluent connect cluster list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json \
+  | sed -n "s/.*\"id\"[[:space:]]*:[[:space:]]*\"\(lcc-[^\"]*\)\".*\"$CONNECTOR_NAME\".*/\1/p" | head -1)
+
+# 4. Poll until RUNNING or FAILED (provisioning takes minutes).
+echo ">> Polling connector status (provisioning can take several minutes)..."
+status=""; trace=""
+for _ in $(seq 1 60); do
+  out=$(confluent connect cluster describe "$CONNECTOR_NAME" --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null || true)
+  status=$(echo "$out" | sed -n 's/.*"status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+  echo "   status: ${status:-<provisioning>}"
+  case "$status" in
+    RUNNING) break ;;
+    FAILED|DEGRADED) trace="$out"; break ;;
+  esac
+  sleep 10
+done
+
+echo
+echo "================= CONFLUENT SMOKE RESULT ================="
+echo "  connector : $CONNECTOR_NAME"
+echo "  status    : ${status:-unknown}"
+if echo "$trace" | grep -qi "not a subtype"; then
+  echo "  !! gRPC 'not a subtype' STILL PRESENT — packaging regression"; echo "$trace" | grep -i "not a subtype" | head -1
+fi
+echo "========================================================="
+
+case "$status" in
+  RUNNING) echo ">> PASS: connector provisioned and is RUNNING."; exit 0 ;;
+  *)       echo ">> CHECK: connector not RUNNING (status=$status). Inspect trace above."; exit 1 ;;
+esac

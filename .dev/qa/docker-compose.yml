@@ -1,0 +1,76 @@
+# Local QA harness for the PlanetScale Debezium connector.
+#
+# Purpose: reproduce — and then prove fixed — the two failures seen on Confluent
+# Cloud Custom Connectors, WITHOUT a Confluent account, by running the connector
+# in a vanilla Kafka Connect worker.
+#
+# The crux: Confluent's managed runtime carries its own gRPC (incl. grpc-googleapis)
+# on the *worker* classpath. Our connector bundles its own io.grpc.*. Connect loads
+# plugins child-first, so the two copies of io.grpc.NameResolverProvider collide and
+# gRPC's ServiceLoader registry init throws "not a subtype". We emulate that here by
+# planting a foreign gRPC stack on the WORKER classpath via the CLASSPATH env var
+# (mounted at /opt/host-grpc, deliberately OUTSIDE plugin.path).
+#
+# See README.md. Driven by scripts/run.sh.
+
+services:
+  kafka:
+    image: apache/kafka:3.9.0
+    hostname: kafka
+    container_name: psdb-qa-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # bind to the routable service hostname (this image derives advertised.listeners
+      # from listeners during its storage-format step, which rejects 0.0.0.0)
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  connect:
+    # Reuse the apache/kafka image (already pulled for the broker) — it ships
+    # connect-distributed.sh + connect-runtime/connect-json — so the harness needs
+    # no extra multi-GB Connect image.
+    image: apache/kafka:3.9.0
+    hostname: connect
+    container_name: psdb-qa-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      # === The emulation of Confluent's runtime ===
+      # Foreign gRPC (incl. grpc-googleapis) on the WORKER (parent) classloader.
+      # connect-distributed.sh -> kafka-run-class.sh prepends $CLASSPATH, so these jars
+      # load on the worker app classloader — the parent of every plugin classloader.
+      # /opt/host-grpc is intentionally NOT in plugin.path.
+      CLASSPATH: "/opt/host-grpc/*"
+      # Force JDK SSL instead of netty's bundled OpenSSL/tcnative. This avoids a known
+      # netty-tcnative-boringssl SIGSEGV (init_have_lse_atomics) on ARM64 / Apple-Silicon
+      # Docker that would crash the worker JVM. It does NOT affect the bug under test (the
+      # gRPC NameResolver collision occurs at channel construction, before TLS); on Confluent's
+      # amd64 runtime tcnative works regardless. Both shaded + unshaded keys set for safety.
+      KAFKA_OPTS: "-Dio.grpc.netty.shaded.io.netty.handler.ssl.noOpenSsl=true -Dio.netty.handler.ssl.noOpenSsl=true"
+    entrypoint:
+      - /opt/kafka/bin/connect-distributed.sh
+      - /opt/connect/connect-distributed.properties
+    volumes:
+      # the built Confluent connector archive (lib/ + manifest.json) as one plugin
+      - ../../debezium-planetscale/build/connect/pkg:/opt/connectors/planetscale-debezium:ro
+      # foreign gRPC jars planted on the worker classpath
+      - ./worker/host-grpc:/opt/host-grpc:ro
+      # distributed worker config
+      - ./config/connect-distributed.properties:/opt/connect/connect-distributed.properties:ro
