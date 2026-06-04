@@ -160,6 +160,7 @@ val debeziumClasses by tasks.registering(Copy::class) {
   exclude("**/VitessValueConverter*") // fix: custom type support (geo)
   exclude("**/VitessDatabaseSchema*") // fix: custom type support (geo)
   exclude("**/VitessConnectorConfig*") // fix: overrides for cell hint, etc
+  exclude("**/VitessMetadata*") // fix: backtick-quote keyspace identifiers (e.g. hyphenated names)
   finalizedBy(debeziumClassesPatched)
 }
 
