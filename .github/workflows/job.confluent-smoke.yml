@@ -5,8 +5,8 @@ name: "Confluent Smoke"
 # down. This is the authoritative cloud gate for the gRPC-relocation / packaging fixes — the fast
 # inner loop is the local Docker harness (.dev/qa/scripts/run.sh).
 #
-# It is wired into CI (on.push.yml) only, never the release pipeline, and the caller marks it
-# continue-on-error so it can NEVER block CI, merges, or releases.
+# It is wired into PR CI (on.pr.yml) only, never the release pipeline, and the caller marks it
+# continue-on-error so it can NEVER block PRs, merges, or releases.
 #
 # Security note: this workflow consumes only `secrets.*` and `vars.*` (trusted). No untrusted
 # event data (issue/PR/commit text, head_ref, ...) is referenced, and every run: step reads its

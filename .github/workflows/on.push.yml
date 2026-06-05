@@ -36,20 +36,3 @@ jobs:
       checks: write # Needed for test result publishing.
     with:
       provenance: true
-
-  # Confluent Cloud smoke test. It is deliberately absent from the release pipeline, and the
-  # reusable workflow marks its build/smoke steps continue-on-error so a failure (or absent
-  # credentials) can NEVER gate CI, merges, or releases — only surface as an annotation.
-  # (continue-on-error is not permitted on a `uses:` job, so non-blocking lives in the steps.)
-  confluent-smoke:
-    name: "Confluent Smoke"
-    uses: ./.github/workflows/job.confluent-smoke.yml
-    secrets:
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
-      KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
-      KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
-      PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
-    permissions:
-      contents: read
