@@ -67,6 +67,18 @@ on:
       CODECOV_TOKEN:
         description: "Codecov Token"
         required: true
+      CONFLUENT_CLOUD_API_KEY:
+        description: "Confluent Cloud API Key"
+        required: false
+      CONFLUENT_CLOUD_API_SECRET:
+        description: "Confluent Cloud API Secret"
+        required: false
+      CONFLUENT_ENV:
+        description: "Confluent Environment ID"
+        required: false
+      CONFLUENT_CLUSTER:
+        description: "Confluent Cluster ID"
+        required: false
 
 permissions:
   contents: read

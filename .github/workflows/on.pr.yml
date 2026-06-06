@@ -64,6 +64,10 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+      CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
+      CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
