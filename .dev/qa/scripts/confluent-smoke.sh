@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # Confluent Cloud smoke test — the real cloud gate. Uploads the built connector as a Custom
-# Connector plugin, creates a connector instance, polls until it reaches a terminal-ish state,
-# prints status/trace, then tears everything down. Intended for CI on release tags (the local
-# Docker harness in run.sh is the fast inner loop; this is the slower, authoritative check).
+# Connector plugin, creates a connector instance, polls until RUNNING, verifies one migration cycle
+# (snapshot.mode=initial → at least one record lands on a Kafka data topic), then tears everything
+# down. Intended for CI (the local Docker harness in run.sh is the fast inner loop; this is the
+# slower, authoritative check).
 #
 # Prereqs:
 #   * confluent CLI installed and logged in:           confluent login
@@ -133,16 +134,49 @@ for _ in $(seq 1 60); do
   sleep 10
 done
 
+# 5. Verify one migration cycle: snapshot.mode=initial publishes existing rows to Kafka. Assert that
+#    at least one record actually lands on a data topic under the connector's prefix. We only assert
+#    delivery here — payload/type fidelity (incl. geometry) is covered by the local GeoReplication
+#    and Vitess integration tests.
+DATA_OK=0
+if [ "$status" = RUNNING ]; then
+  echo ">> Verifying one migration cycle (snapshot → Kafka topic)..."
+  for _ in $(seq 1 6); do
+    # data topics are <prefix>.<keyspace>.<table>; exclude internal transaction/schema/heartbeat topics
+    topics=$(confluent kafka topic list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null \
+             | jq -r --arg p "$TOPIC_PREFIX." '.[]? | (if type == "object" then .name else . end) | select(type == "string" and startswith($p))' 2>/dev/null \
+             | grep -vE '\.(transaction|schema-changes|heartbeat)$' | head -n 6 || true)
+    while IFS= read -r t; do
+      [ -n "$t" ] || continue
+      out=$(timeout 20 confluent kafka topic consume "$t" --from-beginning --value-format string \
+              --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" \
+              --api-key "$KAFKA_API_KEY" --api-secret "$KAFKA_API_SECRET" 2>/dev/null | head -n 5 || true)
+      n=$(printf '%s' "$out" | grep -c . || true)
+      if [ "${n:-0}" -gt 0 ]; then
+        echo "   ✔ consumed $n record(s) from $t"
+        DATA_OK=1; break
+      fi
+    done <<< "$topics"
+    if [ "$DATA_OK" = 1 ]; then break; fi
+    echo "   no snapshot data yet; waiting..."
+    sleep 15
+  done
+fi
+
 echo
 echo "================= CONFLUENT SMOKE RESULT ================="
 echo "  connector : $CONNECTOR_NAME"
 echo "  status    : ${status:-unknown}"
+echo "  data flow : $([ "$DATA_OK" = 1 ] && echo 'snapshot records reached Kafka' || echo 'no records observed')"
 if echo "$trace" | grep -qi "not a subtype"; then
   echo "  !! gRPC 'not a subtype' STILL PRESENT — packaging regression"; echo "$trace" | grep -i "not a subtype" | head -1
 fi
 echo "========================================================="
 
-case "$status" in
-  RUNNING) echo ">> PASS: connector provisioned and is RUNNING."; exit 0 ;;
-  *)       echo ">> CHECK: connector not RUNNING (status=$status). Inspect trace above."; exit 1 ;;
-esac
+if [ "$status" = RUNNING ] && [ "$DATA_OK" = 1 ]; then
+  echo ">> PASS: connector RUNNING and snapshot completed one migration cycle to Kafka."; exit 0
+elif [ "$status" = RUNNING ]; then
+  echo ">> CHECK: connector RUNNING but no snapshot data observed on Kafka within timeout."; exit 1
+else
+  echo ">> CHECK: connector not RUNNING (status=$status). Inspect trace above."; exit 1
+fi
