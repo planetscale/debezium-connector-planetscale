@@ -19,8 +19,10 @@ name: "Confluent Smoke"
 # Configuration (the gate skips cleanly unless ALL of these are set):
 #   Repository variables (Settings -> Variables): CONFLUENT_ENV, CONFLUENT_CLUSTER, PSDB_HOST,
 #     PSDB_USER, PSDB_KEYSPACE  (TOPIC_PREFIX optional, defaults to 'fulfillment')
-#   Repository secrets   (Settings -> Secrets):   CONFLUENT_CLOUD_API_KEY, CONFLUENT_CLOUD_API_SECRET
-#     (Cloud API key for non-interactive CLI auth), KAFKA_API_KEY, KAFKA_API_SECRET, PSDB_PASSWORD
+#   Repository secrets   (Settings -> Secrets):   CONFLUENT_CLOUD_EMAIL, CONFLUENT_CLOUD_PASSWORD
+#     (a NON-SSO Confluent Cloud user with admin RBAC — the CLI requires a username/password session
+#     for custom-connector commands; Cloud API keys do not authenticate them), KAFKA_API_KEY,
+#     KAFKA_API_SECRET, PSDB_PASSWORD
 
 on:
   workflow_dispatch: {}
@@ -28,9 +30,9 @@ on:
     secrets:
       GRADLE_ENCRYPTION_KEY:
         required: false
-      CONFLUENT_CLOUD_API_KEY:
+      CONFLUENT_CLOUD_EMAIL:
         required: false
-      CONFLUENT_CLOUD_API_SECRET:
+      CONFLUENT_CLOUD_PASSWORD:
         required: false
       KAFKA_API_KEY:
         required: false
@@ -66,8 +68,8 @@ jobs:
         # the test skips cleanly — so an absent/partial config (e.g. a fork PR with no secrets)
         # never blocks the PR. Only a genuine provisioning failure, with all creds present, blocks.
         env:
-          CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-          CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+          CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+          CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
           CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
           CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
           KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
@@ -78,7 +80,7 @@ jobs:
           PSDB_KEYSPACE: ${{ vars.PSDB_KEYSPACE }}
         run: |
           missing=""
-          for v in CONFLUENT_CLOUD_API_KEY CONFLUENT_CLOUD_API_SECRET CONFLUENT_ENV CONFLUENT_CLUSTER \
+          for v in CONFLUENT_CLOUD_EMAIL CONFLUENT_CLOUD_PASSWORD CONFLUENT_ENV CONFLUENT_CLUSTER \
                    KAFKA_API_KEY KAFKA_API_SECRET PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE; do
             [ -z "${!v}" ] && missing="$missing $v"
           done
@@ -117,6 +119,17 @@ jobs:
           curl -sL --http1.1 https://cnfl.io/cli | sh -s -- -b "$HOME/.local/bin"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: "Setup: Confluent login"
+        if: steps.gate.outputs.run == 'true'
+        # custom-connector commands require a user-session login; Cloud API keys do not authenticate
+        # them. `confluent login` reads CONFLUENT_CLOUD_EMAIL/PASSWORD non-interactively (non-SSO).
+        # The session persists via $HOME for the build/smoke steps below.
+        env:
+          CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+          CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
+          CONFLUENT_CLOUD_ORGANIZATION_ID: ${{ vars.CONFLUENT_CLOUD_ORGANIZATION_ID }}
+        run: confluent login
+
       - name: "Build: Connector archive"
         if: steps.gate.outputs.run == 'true'
         run: ./gradlew :debezium-planetscale:connectDist -x test
@@ -124,9 +137,7 @@ jobs:
       - name: "Smoke: Confluent Cloud provisioning"
         if: steps.gate.outputs.run == 'true'
         env:
-          # non-interactive CLI auth
-          CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-          CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+          # CLI session is already established by the "Setup: Confluent login" step above.
           # target env/cluster (non-sensitive -> repo variables)
           CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
           CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}

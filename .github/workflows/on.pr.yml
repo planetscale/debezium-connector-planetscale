@@ -87,8 +87,8 @@ jobs:
     uses: ./.github/workflows/job.confluent-smoke.yml
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+      CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+      CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
       KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
       KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
       PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
