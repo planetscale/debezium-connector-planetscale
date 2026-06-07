@@ -29,6 +29,11 @@ CONNECTOR_NAME="psdb-smoke-$$"
 need() { [ -n "${!1:-}" ] || { echo "!! missing required env var: $1" >&2; exit 2; }; }
 for v in CONFLUENT_ENV CONFLUENT_CLUSTER KAFKA_API_KEY KAFKA_API_SECRET PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE TOPIC_PREFIX; do need "$v"; done
 command -v confluent >/dev/null || { echo "!! confluent CLI not found"; exit 2; }
+command -v jq >/dev/null || { echo "!! jq not found (required to parse Confluent CLI JSON output)"; exit 2; }
+
+# Tolerant, schema-agnostic status reader: first string-valued "status"/"state" anywhere in the JSON
+# (the CLI's describe/list shapes vary by version, so we don't hard-code a path).
+json_status() { jq -r 'first(.. | objects | (.status, .state) | select(type == "string")) // empty' 2>/dev/null; }
 
 # 1. Build the archive (assembleConnectZip → dist/*.zip) if needed.
 ZIP=$(ls $ZIP_GLOB 2>/dev/null | head -1 || true)
@@ -47,7 +52,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 2. Upload the plugin (CLI handles the presigned-URL upload).
+# 2. Upload the plugin (CLI handles the presigned-URL upload). Custom plugins are ORG-scoped, so
+#    `custom-plugin create` takes NO --environment (unlike the cluster/connector commands below).
 echo ">> Uploading custom-connector plugin..."
 CCP=$(confluent connect custom-plugin create "$PLUGIN_NAME-$$" \
   --plugin-file "$ZIP" \
@@ -55,8 +61,8 @@ CCP=$(confluent connect custom-plugin create "$PLUGIN_NAME-$$" \
   --connector-class com.planetscale.debezium.PlanetscaleConnector \
   --sensitive-properties database.password,kafka.api.secret \
   --cloud "$CLOUD" \
-  --environment "$CONFLUENT_ENV" \
-  -o json | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+  -o json | jq -r '.id // empty')
+[ -n "$CCP" ] || { echo "!! failed to obtain custom-plugin id from create output"; exit 1; }
 echo "   plugin id: $CCP"
 
 # 3. Create the connector instance.
@@ -85,19 +91,33 @@ cat > "$CFG" <<JSON
 JSON
 echo ">> Creating connector $CONNECTOR_NAME..."
 confluent connect cluster create --config-file "$CFG" --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json
-LCC=$(confluent connect cluster list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json \
-  | sed -n "s/.*\"id\"[[:space:]]*:[[:space:]]*\"\(lcc-[^\"]*\)\".*\"$CONNECTOR_NAME\".*/\1/p" | head -1)
+
+# Resolve the connector's lcc- id by name. `describe`/`delete` take the id positionally (not the
+# name), and the connector can take a few seconds to appear in the listing after create.
+LCC=""
+for _ in $(seq 1 12); do
+  LCC=$(confluent connect cluster list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null \
+        | jq -r --arg n "$CONNECTOR_NAME" 'first(.. | objects | select(.name? == $n) | .id?) // empty' || true)
+  if [ -n "$LCC" ]; then break; fi
+  sleep 5
+done
+if [ -n "$LCC" ]; then echo "   connector id: $LCC"; else echo "   (warning: could not resolve connector id; polling by name via list)"; fi
 
 # 4. Poll until RUNNING or FAILED (provisioning takes minutes).
 echo ">> Polling connector status (provisioning can take several minutes)..."
 status=""; trace=""
 for _ in $(seq 1 60); do
-  out=$(confluent connect cluster describe "$CONNECTOR_NAME" --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null || true)
-  status=$(echo "$out" | sed -n 's/.*"status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+  if [ -n "$LCC" ]; then
+    out=$(confluent connect cluster describe "$LCC" --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null || true)
+  else
+    out=$(confluent connect cluster list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null \
+          | jq -c --arg n "$CONNECTOR_NAME" 'first(.. | objects | select(.name? == $n)) // {}' || true)
+  fi
+  status=$(echo "$out" | json_status)
   echo "   status: ${status:-<provisioning>}"
   case "$status" in
     RUNNING) break ;;
-    FAILED|DEGRADED) trace="$out"; break ;;
+    FAILED|DEGRADED|PAUSED) trace="$out"; break ;;
   esac
   sleep 10
 done
