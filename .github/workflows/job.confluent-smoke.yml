@@ -1,21 +1,24 @@
 name: "Confluent Smoke"
 
-# Reusable, NON-BLOCKING smoke test: builds the connector archive, uploads it to Confluent Cloud
-# as a Custom Connector plugin, provisions a connector, polls its status, and tears everything
-# down. This is the authoritative cloud gate for the gRPC-relocation / packaging fixes — the fast
-# inner loop is the local Docker harness (.dev/qa/scripts/run.sh).
+# Reusable smoke test: builds the connector archive, uploads it to Confluent Cloud as a Custom
+# Connector plugin, provisions a connector, polls its status, and tears everything down. This is
+# the authoritative cloud gate for the gRPC-relocation / packaging fixes — the fast inner loop is
+# the local Docker harness (.dev/qa/scripts/run.sh).
 #
-# It is wired into PR CI (on.pr.yml) only, never the release pipeline, and the caller marks it
-# continue-on-error so it can NEVER block PRs, merges, or releases.
+# It is wired into PR CI (on.pr.yml) only, never the release pipeline. When the full credential set
+# is configured the smoke step is BLOCKING — a provisioning failure fails the PR check. When the
+# credentials are absent or incomplete (e.g. a fork PR with no secrets), the gate skips the test
+# cleanly so it never blocks on misconfiguration. It is deliberately absent from on.release.yml, so
+# it can never gate a release.
 #
 # Security note: this workflow consumes only `secrets.*` and `vars.*` (trusted). No untrusted
 # event data (issue/PR/commit text, head_ref, ...) is referenced, and every run: step reads its
 # inputs from `env:` rather than interpolating `${{ }}` into the shell — so there is no
 # command-injection surface.
 #
-# Configuration (all optional — the job no-ops cleanly if absent):
+# Configuration (the gate skips cleanly unless ALL of these are set):
 #   Repository variables (Settings -> Variables): CONFLUENT_ENV, CONFLUENT_CLUSTER, PSDB_HOST,
-#     PSDB_USER, PSDB_KEYSPACE, TOPIC_PREFIX
+#     PSDB_USER, PSDB_KEYSPACE  (TOPIC_PREFIX optional, defaults to 'fulfillment')
 #   Repository secrets   (Settings -> Secrets):   CONFLUENT_CLOUD_API_KEY, CONFLUENT_CLOUD_API_SECRET
 #     (Cloud API key for non-interactive CLI auth), KAFKA_API_KEY, KAFKA_API_SECRET, PSDB_PASSWORD
 
@@ -59,15 +62,31 @@ jobs:
 
       - name: "Gate: credentials configured?"
         id: gate
+        # Validates the FULL required set (everything confluent-smoke.sh needs). If any is missing
+        # the test skips cleanly — so an absent/partial config (e.g. a fork PR with no secrets)
+        # never blocks the PR. Only a genuine provisioning failure, with all creds present, blocks.
         env:
           CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+          CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
           CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
           CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
+          KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
+          KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
+          PSDB_HOST: ${{ vars.PSDB_HOST }}
+          PSDB_USER: ${{ vars.PSDB_USER }}
+          PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
+          PSDB_KEYSPACE: ${{ vars.PSDB_KEYSPACE }}
         run: |
-          if [ -z "$CONFLUENT_CLOUD_API_KEY" ] || [ -z "$CONFLUENT_ENV" ] || [ -z "$CONFLUENT_CLUSTER" ]; then
-            echo "Confluent credentials/vars not configured — skipping smoke test (non-blocking)." | tee -a "$GITHUB_STEP_SUMMARY"
+          missing=""
+          for v in CONFLUENT_CLOUD_API_KEY CONFLUENT_CLOUD_API_SECRET CONFLUENT_ENV CONFLUENT_CLUSTER \
+                   KAFKA_API_KEY KAFKA_API_SECRET PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "Confluent smoke test skipped — missing credentials/vars:$missing" | tee -a "$GITHUB_STEP_SUMMARY"
             echo "run=false" >> "$GITHUB_OUTPUT"
           else
+            echo "All credentials present — running smoke test (blocking)." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -100,12 +119,10 @@ jobs:
 
       - name: "Build: Connector archive"
         if: steps.gate.outputs.run == 'true'
-        continue-on-error: true # non-blocking
         run: ./gradlew :debezium-planetscale:connectDist -x test
 
       - name: "Smoke: Confluent Cloud provisioning"
         if: steps.gate.outputs.run == 'true'
-        continue-on-error: true # non-blocking: surfaces as an annotation, never fails the run
         env:
           # non-interactive CLI auth
           CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}

@@ -76,10 +76,11 @@ jobs:
     with:
       build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
 
-  # Confluent Cloud smoke test. It is deliberately absent from the release pipeline, and the
-  # reusable workflow marks its build/smoke steps continue-on-error so a failure (or absent
-  # credentials) can NEVER gate PRs, merges, or releases — only surface as an annotation.
-  # (continue-on-error is not permitted on a `uses:` job, so non-blocking lives in the steps.)
+  # Confluent Cloud smoke test. Absent from the release pipeline (on.release.yml), so it can never
+  # gate a release. On PRs it is BLOCKING when the full credential set is configured — a real
+  # provisioning failure fails this check. When credentials are absent or incomplete (e.g. a fork
+  # PR with no secrets) the reusable workflow's gate skips the test cleanly, so misconfiguration
+  # never blocks a PR.
   confluent-smoke:
     name: "Confluent Smoke"
     needs: [triage]
