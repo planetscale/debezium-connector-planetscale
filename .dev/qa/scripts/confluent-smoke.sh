@@ -141,26 +141,36 @@ done
 DATA_OK=0
 if [ "$status" = RUNNING ]; then
   echo ">> Verifying one migration cycle (snapshot → Kafka topic)..."
-  for _ in $(seq 1 6); do
+  cerr=$(mktemp)
+  for attempt in $(seq 1 5); do
+    all_topics=$(confluent kafka topic list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>"$cerr" \
+                 | jq -r '.[]? | (if type == "object" then .name else . end) | select(type == "string")' 2>/dev/null || true)
+    if [ "$attempt" = 1 ]; then
+      echo "   topics on cluster: $(printf '%s\n' "$all_topics" | grep -c . || true) total"
+      printf '%s\n' "$all_topics" | grep . | sed 's/^/     - /' | head -40 || true
+      [ -s "$cerr" ] && echo "   (topic list note: $(tr '\n' ' ' < "$cerr" | head -c 300))"
+    fi
     # data topics are <prefix>.<keyspace>.<table>; exclude internal transaction/schema/heartbeat topics
-    topics=$(confluent kafka topic list --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null \
-             | jq -r --arg p "$TOPIC_PREFIX." '.[]? | (if type == "object" then .name else . end) | select(type == "string" and startswith($p))' 2>/dev/null \
-             | grep -vE '\.(transaction|schema-changes|heartbeat)$' | head -n 6 || true)
+    topics=$(printf '%s\n' "$all_topics" | grep -E "^${TOPIC_PREFIX}\." | grep -vE '\.(transaction|schema-changes|heartbeat)$' | head -n 4 || true)
     while IFS= read -r t; do
       [ -n "$t" ] || continue
-      out=$(timeout 20 confluent kafka topic consume "$t" --from-beginning --value-format string \
+      # head -n 1 makes this return as soon as a record arrives; timeout caps the wait (the CLI
+      # consumer is slow to start, so give it room).
+      out=$(timeout 45 confluent kafka topic consume "$t" --from-beginning --value-format string \
               --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" \
-              --api-key "$KAFKA_API_KEY" --api-secret "$KAFKA_API_SECRET" 2>/dev/null | head -n 5 || true)
+              --api-key "$KAFKA_API_KEY" --api-secret "$KAFKA_API_SECRET" 2>"$cerr" | head -n 1 || true)
       n=$(printf '%s' "$out" | grep -c . || true)
       if [ "${n:-0}" -gt 0 ]; then
-        echo "   ✔ consumed $n record(s) from $t"
+        echo "   ✔ consumed a record from $t"
         DATA_OK=1; break
       fi
+      echo "   $t: 0 records$( [ -s "$cerr" ] && echo " — $(tr '\n' ' ' < "$cerr" | head -c 200)")"
     done <<< "$topics"
     if [ "$DATA_OK" = 1 ]; then break; fi
-    echo "   no snapshot data yet; waiting..."
+    echo "   no snapshot data yet (round $attempt); waiting..."
     sleep 15
   done
+  rm -f "$cerr"
 fi
 
 echo
