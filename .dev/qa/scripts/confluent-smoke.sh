@@ -16,14 +16,15 @@
 #   KAFKA_API_KEY / KAFKA_API_SECRET           (for the connector's Kafka auth)
 #   PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE TOPIC_PREFIX   (PlanetScale connection)
 # Optional:
-#   PLUGIN_NAME (default planetscale-debezium)  CLOUD (default aws)  KEEP=1 (skip teardown)
+#   PLUGIN_NAME (default planetscale-debezium)  KEEP=1 (skip teardown)
+#   CLOUD (aws|gcp|azure; auto-detected from the target cluster if unset)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
 ZIP_GLOB="$ROOT/debezium-planetscale/build/connect/dist/planetscale-debezium-connector-planetscale-*.zip"
 PLUGIN_NAME="${PLUGIN_NAME:-planetscale-debezium}"
-CLOUD="${CLOUD:-aws}"
+CLOUD="${CLOUD:-}"  # auto-detected from the target cluster below unless set explicitly
 CONNECTOR_NAME="psdb-smoke-$$"
 
 need() { [ -n "${!1:-}" ] || { echo "!! missing required env var: $1" >&2; exit 2; }; }
@@ -51,6 +52,16 @@ cleanup() {
   [ -n "${CCP:-}" ] && confluent connect custom-plugin delete "$CCP" --force 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# A custom plugin is uploaded for a specific cloud and can only provision connectors on a cluster in
+# that same cloud ("cannot use connector plugin from aws to provision custom connector in gcp ...").
+# Auto-detect the target cluster's cloud (aws/gcp/azure) unless CLOUD was set explicitly.
+if [ -z "$CLOUD" ]; then
+  CLOUD=$(confluent kafka cluster describe "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" -o json 2>/dev/null \
+          | jq -r '[.. | strings | ascii_downcase | select(. == "aws" or . == "gcp" or . == "azure")] | first // empty' || true)
+fi
+CLOUD="${CLOUD:-aws}"
+echo ">> Target cloud: $CLOUD (cluster $CONFLUENT_CLUSTER)"
 
 # 2. Upload the plugin (CLI handles the presigned-URL upload). Custom plugins are ORG-scoped, so
 #    `custom-plugin create` takes NO --environment (unlike the cluster/connector commands below).
