@@ -59,6 +59,15 @@ public class VitessMetadata {
         return value.replace("\\", "\\\\").replace("'", "\\'");
     }
 
+    // Escape LIKE wildcards so they match literally. Backslash is the LIKE escape
+    // character and must be escaped first; otherwise an unescaped `_` keyspace name
+    // would over-match (e.g. `ehsan_test` would match `ehsan-test`).
+    // Apply before escapeStringLiteral so the added backslashes are themselves doubled.
+    @VisibleForTesting
+    static String escapeLikePattern(String value) {
+        return value.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%");
+    }
+
     public List<String> getShards() {
         List<String> shards;
         if (config.excludeEmptyShards()) {
@@ -105,7 +114,7 @@ public class VitessMetadata {
     }
 
     private List<String> getVitessShards() {
-        String query = formatQuery("SHOW VITESS_SHARDS LIKE '%s/%%'", escapeStringLiteral(config.getKeyspace()));
+        String query = formatQuery("SHOW VITESS_SHARDS LIKE '%s/%%'", escapeStringLiteral(escapeLikePattern(config.getKeyspace())));
         Vtgate.ExecuteResponse response = executeQuery(query);
         logResponse(response, query);
         List<String> rows = getFlattenedRowsFromResponse(response);
