@@ -171,6 +171,23 @@ if [ "$status" = RUNNING ]; then
     sleep 15
   done
   rm -f "$cerr"
+
+  # Diagnosis: if no data topics appeared, the connector itself logs why (no tables matched, 0 rows
+  # snapshotted, auth/permission error, ...) to its <connector-id>-app-logs topic. Dump it before
+  # teardown so the failing run shows the root cause.
+  if [ "$DATA_OK" != 1 ] && [ -n "$LCC" ]; then
+    echo ">> No data observed — sampling connector app-logs (${LCC}-app-logs) for diagnosis:"
+    alog=$(mktemp)
+    timeout 45 confluent kafka topic consume "${LCC}-app-logs" --from-beginning --value-format string \
+      --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" \
+      --api-key "$KAFKA_API_KEY" --api-secret "$KAFKA_API_SECRET" 2>/dev/null > "$alog" || true
+    echo "   (captured $(grep -c . "$alog" || true) app-log lines)"
+    echo "   --- snapshot / table / error lines ---"
+    grep -iE "snapshot|table|keyspace|vstream|vgtid|row|error|exception|denied|permission|no tables|empty|complet" "$alog" | tail -n 40 | sed 's/^/     | /' || true
+    echo "   --- last 20 app-log lines ---"
+    tail -n 20 "$alog" | sed 's/^/     | /' || true
+    rm -f "$alog"
+  fi
 fi
 
 echo
