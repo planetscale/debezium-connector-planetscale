@@ -176,14 +176,19 @@ if [ "$status" = RUNNING ]; then
   # snapshotted, auth/permission error, ...) to its <connector-id>-app-logs topic. Dump it before
   # teardown so the failing run shows the root cause.
   if [ "$DATA_OK" != 1 ] && [ -n "$LCC" ]; then
-    echo ">> No data observed — probing connector app-logs (${LCC}-app-logs) with stderr VISIBLE"
-    echo "   (a RUNNING connector always logs here; if this also reads 0 records, the consumer — not"
-    echo "    the connector — is the problem, and the error below will say why):"
-    # stderr is intentionally NOT suppressed so any consumer auth/bootstrap/connect error is shown.
+    echo ">> No data observed — reading connector app-logs (${LCC}-app-logs) to see what the snapshot did:"
+    alog=$(mktemp)
     timeout 60 confluent kafka topic consume "${LCC}-app-logs" --from-beginning --value-format string \
-      --print-offset --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" \
-      --api-key "$KAFKA_API_KEY" --api-secret "$KAFKA_API_SECRET" 2>&1 \
-      | head -n 40 | sed 's/^/     | /' || true
+      --cluster "$CONFLUENT_CLUSTER" --environment "$CONFLUENT_ENV" \
+      --api-key "$KAFKA_API_KEY" --api-secret "$KAFKA_API_SECRET" 2>/dev/null > "$alog" || true
+    echo "   (captured $(wc -l < "$alog" 2>/dev/null || echo 0) raw lines)"
+    # the records are JSON log events; pull out the human-readable message text
+    msgs=$(grep -oE '"message":"([^"\\]|\\.)*"' "$alog" 2>/dev/null | sed -E 's/^"message":"//; s/"$//')
+    echo "   --- error / warning messages ---"
+    printf '%s\n' "$msgs" | grep -iE "error|exception|warn|fail|denied|0 record|no tables|empty|skip" | tail -n 25 | sed 's/^/     | /' || true
+    echo "   --- last 30 log messages ---"
+    printf '%s\n' "$msgs" | grep . | tail -n 30 | sed 's/^/     | /' || true
+    rm -f "$alog"
   fi
 fi
 
