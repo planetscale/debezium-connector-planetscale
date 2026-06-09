@@ -96,7 +96,7 @@ cat > "$CFG" <<JSON
     "database.user": "$PSDB_USER",
     "database.password": "$PSDB_PASSWORD",
     "snapshot.mode": "initial",
-    "vitess.tablet.type": "REPLICA",
+    "vitess.tablet.type": "MASTER",
     "vitess.keyspace": "$PSDB_KEYSPACE"
   }
 }
