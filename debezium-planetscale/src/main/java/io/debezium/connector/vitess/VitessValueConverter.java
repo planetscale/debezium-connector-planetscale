@@ -509,22 +509,27 @@ public class VitessValueConverter extends JdbcValueConverters {
    * Convert a MySQL TIMESTAMP raw value into a {@link java.util.Date} suitable for Kafka Connect's
    * {@link org.apache.kafka.connect.data.Timestamp} logical type. Accepts both the raw vstream string and any
    * already-converted Date/Timestamp instance.
+   *
+   * The string value is parsed before being handed to {@code convertValue} so that the MySQL zero-date sentinel
+   * follows the same path as a DATETIME zero-date: null for optional columns, the schema default value or the
+   * epoch fallback for non-optional columns. Delivering nothing instead would route the sentinel through
+   * {@code handleUnknownData}, which throws for non-optional columns and would crash the pipeline.
    */
   protected Object convertTimestampToConnectDate(Column column, Field fieldDefn, Object data) {
-    return convertValue(column, fieldDefn, data, new Date(0L), (r) -> {
-      if (data instanceof Date d) {
-        r.deliver(new Date(d.getTime()));
+    Object value = data;
+    if (data instanceof String s) {
+      try {
+        value = stringToConnectDate(s);
       }
-      else if (data instanceof String s) {
-        try {
-          Date parsed = stringToConnectDate(s);
-          if (parsed != null) {
-            r.deliver(parsed);
-          }
-        }
-        catch (DateTimeParseException e) {
-          INVALID_VALUE_LOGGER.warn("Could not parse TIMESTAMP value '{}' for column {}", s, column.name());
-        }
+      catch (DateTimeParseException e) {
+        INVALID_VALUE_LOGGER.warn("Could not parse TIMESTAMP value '{}' for column {}", s, column.name());
+        value = null;
+      }
+    }
+    final Object parsed = value;
+    return convertValue(column, fieldDefn, parsed, new Date(0L), (r) -> {
+      if (parsed instanceof Date d) {
+        r.deliver(new Date(d.getTime()));
       }
     });
   }
