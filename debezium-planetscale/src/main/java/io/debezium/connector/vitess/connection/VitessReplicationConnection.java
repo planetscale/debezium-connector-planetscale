@@ -75,6 +75,16 @@ public class VitessReplicationConnection implements ReplicationConnection {
     return newBlockingStub(channel).execute(request);
   }
 
+  /**
+   * Quote an identifier (e.g. a keyspace or table name) so it can be safely interpolated into
+   * SQL sent to vtgate: wrap it in backticks and escape any embedded backtick by doubling it.
+   * Required because keyspace/table names can legally contain characters that are not valid
+   * in bare MySQL identifiers (e.g. hyphens).
+   */
+  public String quoteIdentifier(String identifier) {
+    return "`" + identifier.replace("`", "``") + "`";
+  }
+
   public Vtgate.ExecuteResponse execute(String sqlStatement, String shard) {
     LOGGER.info("Executing sqlStament {}", sqlStatement);
     ManagedChannel channel = newChannel(config.getVtgateHost(), config.getVtgatePort(), config.getGrpcMaxInboundMessageSize());
@@ -300,7 +310,7 @@ public class VitessReplicationConnection implements ReplicationConnection {
       final List<String> allTables = new VitessMetadata(config).getTables();
       List<String> includedTables = VitessConnector.getIncludedTables(config, allTables);
       for (String table : includedTables) {
-        String sql = "select * from " + VitessMetadata.quoteIdentifier(table);
+        String sql = "select * from " + quoteIdentifier(table);
         // See rule in: https://github.com/vitessio/vitess/blob/release-14.0/go/vt/vttablet/tabletserver/vstreamer/planbuilder.go#L316
         Binlogdata.Rule rule = Binlogdata.Rule.newBuilder().setMatch(table).setFilter(sql).build();
         LOGGER.info("Add vstream table filtering: {}", rule.getMatch());

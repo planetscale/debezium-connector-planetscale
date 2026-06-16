@@ -46,13 +46,6 @@ public class VitessMetadata {
         return formattedQuery;
     }
 
-    // MySQL identifier quoting: wrap in backticks and escape any embedded backtick by doubling.
-    // Required because keyspace/table names can legally contain hyphens etc. that are not valid
-    // bare identifiers in MySQL/Vitess SQL.
-    public static String quoteIdentifier(String identifier) {
-        return "`" + identifier.replace("`", "``") + "`";
-    }
-
     // Escape a value to be placed inside a MySQL single-quoted string literal.
     @VisibleForTesting
     static String escapeStringLiteral(String value) {
@@ -100,8 +93,13 @@ public class VitessMetadata {
             response = executeQuery(query, randomShard);
         }
         else {
-            query = formatQuery("SHOW TABLES FROM %s", quoteIdentifier(config.getKeyspace()));
-            response = executeQuery(query);
+            try (VitessReplicationConnection connection = new VitessReplicationConnection(config, null)) {
+                query = formatQuery("SHOW TABLES FROM %s", connection.quoteIdentifier(config.getKeyspace()));
+                response = connection.execute(query);
+            }
+            catch (Exception e) {
+                throw new RuntimeException(String.format("Unexpected error while getting tables from keyspace: %s", config.getKeyspace()), e);
+            }
         }
         logResponse(response, query);
         List<String> tables = getFlattenedRowsFromResponse(response);
