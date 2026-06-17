@@ -86,6 +86,7 @@ cat > "$CFG" <<JSON
     "connector.class": "com.planetscale.debezium.PlanetscaleConnector",
     "confluent.connector.type": "CUSTOM",
     "confluent.custom.plugin.id": "$CCP",
+    "confluent.custom.connection.endpoints": "$PSDB_HOST:443",
     "kafka.auth.mode": "KAFKA_API_KEY",
     "kafka.api.key": "$KAFKA_API_KEY",
     "kafka.api.secret": "$KAFKA_API_SECRET",
