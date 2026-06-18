@@ -8,7 +8,7 @@ package io.debezium.connector.vitess
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class VitessMetadataTest {
+internal class VitessMetadataTest {
   @Test fun escapeStringLiteral_escapesSingleQuotesAndBackslashes() {
     assertEquals("plain", VitessMetadata.escapeStringLiteral("plain"))
     assertEquals("with-dash", VitessMetadata.escapeStringLiteral("with-dash"))

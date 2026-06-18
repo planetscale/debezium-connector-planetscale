@@ -10,7 +10,7 @@ import io.debezium.connector.vitess.VitessConnectorConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class VitessReplicationConnectionTest {
+internal class VitessReplicationConnectionTest {
   // quoteIdentifier is a non-static method on VitessReplicationConnection (mirroring
   // JdbcConnection#quoteIdentifier); construction is lightweight and does not open a channel.
   private fun connection(): VitessReplicationConnection =
