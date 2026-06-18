@@ -53,7 +53,7 @@ jobs:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: "Triage: PR Changes"
         id: filter
-        uses: step-security/paths-filter@6eee183b0d2fd101d3f8ee2935c127bca14c5625 # v3.0.5
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
           filters: .github/triage.yml
 

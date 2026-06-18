@@ -45,7 +45,7 @@ jobs:
           java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '21' }}
           distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
       - name: "Setup: Elide"
-        uses: elide-dev/setup-elide@d91d5859c0722417ea1ac4c682382ac8a6622b80 # main
+        uses: elide-dev/setup-elide@d2f742321bf672300c0935839b6f5c6e562a965b # v4.1.0
       - name: "Run: Claude Code"
         id: claude
         uses: anthropics/claude-code-action@6337623ebba10cf8c8214b507993f8062fd4ccfb # beta
