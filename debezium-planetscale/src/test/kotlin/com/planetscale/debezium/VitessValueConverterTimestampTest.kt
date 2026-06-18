@@ -22,7 +22,7 @@ import org.apache.kafka.connect.data.Field
 // Covers the parsing helper introduced for `time.precision.mode = connect` support on MySQL TIMESTAMP columns.
 // Upstream Vitess pins these to ZonedTimestamp regardless of mode; the fork's patch parses the UTC vstream string
 // into a `java.util.Date` so the column serialises as Kafka Connect's Timestamp logical type (epoch millis).
-class VitessValueConverterTimestampTest {
+internal class VitessValueConverterTimestampTest {
 
   @Test fun parsesPlainTimestampAsUtc() {
     val parsed = VitessValueConverter.stringToConnectDate("2026-06-02 08:28:45")
