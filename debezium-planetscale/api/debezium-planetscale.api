@@ -135,12 +135,14 @@ public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdb
 	protected fun convertGeometry (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetToString (Ljava/util/List;Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetValue (Lio/debezium/relational/Column;JLjava/util/List;)Ljava/lang/String;
+	protected fun convertTimestampToConnectDate (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertUnsignedBigint (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected static fun convertUnsignedBigint (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;
 	public fun converter (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;)Lio/debezium/relational/ValueConverter;
 	public static fun isDateOrDateTime (Ljava/lang/String;)Z
 	protected static fun matches (Ljava/lang/String;Ljava/lang/String;)Z
 	public fun schemaBuilder (Lio/debezium/relational/Column;)Lorg/apache/kafka/connect/data/SchemaBuilder;
+	public static fun stringToConnectDate (Ljava/lang/String;)Ljava/util/Date;
 	public static fun stringToDuration (Ljava/lang/String;)Ljava/time/Duration;
 	public static fun stringToLocalDate (Ljava/lang/String;)Ljava/time/LocalDate;
 	public static fun stringToTimestamp (Ljava/lang/String;)Ljava/sql/Timestamp;

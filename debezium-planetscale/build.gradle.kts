@@ -121,6 +121,7 @@ dependencies {
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
   testImplementation(debezium.connectors.vitess)
+  testImplementation(debezium.connectors.mysql)
   testRuntimeOnly(libs.junit.platform.launcher)
 }
 

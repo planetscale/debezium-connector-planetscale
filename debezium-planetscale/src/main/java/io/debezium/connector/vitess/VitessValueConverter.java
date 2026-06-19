@@ -9,8 +9,12 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjuster;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -158,6 +162,12 @@ public class VitessValueConverter extends JdbcValueConverters {
     if (isTemporal(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.ISOSTRING)) {
       return SchemaBuilder.string();
     }
+    // MySQL TIMESTAMP is mapped to Types.TIMESTAMP_WITH_TIMEZONE upstream, which JdbcValueConverters hardcodes to
+    // ZonedTimestamp regardless of `time.precision.mode`. Honor `connect` mode here so the documented contract is
+    // upheld (Kafka Connect's Timestamp logical type, epoch millis) for MySQL TIMESTAMP columns.
+    if (isTimestamp(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.CONNECT)) {
+      return org.apache.kafka.connect.data.Timestamp.builder();
+    }
 
     final SchemaBuilder jdbcSchemaBuilder = superOrShimmedBuilder(column);
     if (jdbcSchemaBuilder == null) {
@@ -182,6 +192,10 @@ public class VitessValueConverter extends JdbcValueConverters {
     return matches(typeName, Query.Type.DATE.name()) ||
             matches(typeName, Query.Type.TIME.name()) ||
             matches(typeName, Query.Type.DATETIME.name());
+  }
+
+  private static boolean isTimestamp(String typeName) {
+    return matches(typeName, Query.Type.TIMESTAMP.name());
   }
 
   // Implements additional type support for the Planetscale adapter.
@@ -230,6 +244,9 @@ public class VitessValueConverter extends JdbcValueConverters {
 
     if (isTemporal(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.ISOSTRING)) {
       return (data) -> convertString(column, fieldDefn, data);
+    }
+    if (isTimestamp(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.CONNECT)) {
+      return (data) -> convertTimestampToConnectDate(column, fieldDefn, data);
     }
 
     final ValueConverter jdbcConverter = superOrShimmedConverter(column, fieldDefn);
@@ -467,6 +484,54 @@ public class VitessValueConverter extends JdbcValueConverters {
       return null;
     }
     return Timestamp.valueOf(datetimeString);
+  }
+
+  // VStream emits MySQL TIMESTAMP as a UTC string ("yyyy-MM-dd HH:mm:ss[.fffffff]"). Parse it as UTC and return a
+  // java.util.Date holding the corresponding epoch millis — the value type expected by Kafka Connect's
+  // {@link org.apache.kafka.connect.data.Timestamp} logical type. Returns null for the MySQL zero-date sentinel.
+  private static final DateTimeFormatter TIMESTAMP_FORMATTER = new java.time.format.DateTimeFormatterBuilder()
+          .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+          .optionalStart()
+          .appendFraction(java.time.temporal.ChronoField.NANO_OF_SECOND, 0, 9, true)
+          .optionalEnd()
+          .toFormatter();
+
+  public static Date stringToConnectDate(String datetimeString) {
+    if (datetimeString.matches("^\\d{4}-00-00.*$")) {
+      INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
+      return null;
+    }
+    final LocalDateTime ldt = LocalDateTime.parse(datetimeString, TIMESTAMP_FORMATTER);
+    return Date.from(ldt.toInstant(ZoneOffset.UTC));
+  }
+
+  /**
+   * Convert a MySQL TIMESTAMP raw value into a {@link java.util.Date} suitable for Kafka Connect's
+   * {@link org.apache.kafka.connect.data.Timestamp} logical type. Accepts both the raw vstream string and any
+   * already-converted Date/Timestamp instance.
+   *
+   * The string value is parsed before being handed to {@code convertValue} so that the MySQL zero-date sentinel
+   * follows the same path as a DATETIME zero-date: null for optional columns, the schema default value or the
+   * epoch fallback for non-optional columns. Delivering nothing instead would route the sentinel through
+   * {@code handleUnknownData}, which throws for non-optional columns and would crash the pipeline.
+   */
+  protected Object convertTimestampToConnectDate(Column column, Field fieldDefn, Object data) {
+    Object value = data;
+    if (data instanceof String s) {
+      try {
+        value = stringToConnectDate(s);
+      }
+      catch (DateTimeParseException e) {
+        INVALID_VALUE_LOGGER.warn("Could not parse TIMESTAMP value '{}' for column {}", s, column.name());
+        value = null;
+      }
+    }
+    final Object parsed = value;
+    return convertValue(column, fieldDefn, parsed, new Date(0L), (r) -> {
+      if (parsed instanceof Date d) {
+        r.deliver(new Date(d.getTime()));
+      }
+    });
   }
 
 
