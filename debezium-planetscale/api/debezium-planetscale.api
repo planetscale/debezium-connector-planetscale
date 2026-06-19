@@ -130,6 +130,19 @@ public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/rel
 	public fun refreshSchema (Lio/debezium/relational/TableId;)V
 }
 
+public class io/debezium/connector/vitess/VitessMetadata {
+	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;)V
+	protected fun executeQuery (Ljava/lang/String;Ljava/lang/String;)Lio/vitess/proto/Vtgate$ExecuteResponse;
+	protected static fun flattenAndConcat (Ljava/util/List;)Ljava/util/List;
+	protected static fun formatQuery (Ljava/lang/String;[Ljava/lang/String;)Ljava/lang/String;
+	public fun getConnectionString ()Ljava/lang/String;
+	public fun getDatabases ()Ljava/util/List;
+	protected static fun getNonEmptyShards (Ljava/util/List;Ljava/lang/String;)Ljava/util/List;
+	public fun getShards ()Ljava/util/List;
+	public fun getTables ()Ljava/util/List;
+	protected static fun parseRows (Ljava/util/List;)Ljava/util/List;
+}
+
 public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdbc/JdbcValueConverters {
 	public fun <init> (Lio/debezium/jdbc/JdbcValueConverters$DecimalMode;Lio/debezium/jdbc/TemporalPrecisionMode;Ljava/time/ZoneOffset;Lio/debezium/config/CommonConnectorConfig$BinaryHandlingMode;ZLio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;ZLjava/time/temporal/TemporalAdjuster;Lio/debezium/config/CommonConnectorConfig$EventConvertingFailureHandlingMode;Lio/debezium/service/spi/ServiceRegistry;)V
 	protected fun convertGeometry (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
@@ -172,6 +185,7 @@ public class io/debezium/connector/vitess/connection/VitessReplicationConnection
 	public static fun defaultVgtid (Lio/debezium/connector/vitess/VitessConnectorConfig;)Lio/debezium/connector/vitess/Vgtid;
 	public fun execute (Ljava/lang/String;)Lio/vitess/proto/Vtgate$ExecuteResponse;
 	public fun execute (Ljava/lang/String;Ljava/lang/String;)Lio/vitess/proto/Vtgate$ExecuteResponse;
+	public fun quoteIdentifier (Ljava/lang/String;)Ljava/lang/String;
 	public fun startStreaming (Lio/debezium/connector/vitess/Vgtid;Lio/debezium/connector/vitess/connection/ReplicationMessageProcessor;Ljava/util/concurrent/atomic/AtomicReference;)V
 }
 
