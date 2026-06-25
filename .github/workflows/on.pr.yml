@@ -1,10 +1,11 @@
 name: "PR"
 
+# Disabled: requires repository secrets not yet configured for the public repo.
 on:
-  pull_request:
-    branches:
-      - main
   workflow_dispatch: {}
+# pull_request:
+#   branches:
+#     - main
 
 permissions:
   contents: read
@@ -16,6 +17,7 @@ concurrency:
 jobs:
   triage:
     name: "Triage"
+    if: false # disabled: requires repository secrets
     runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     permissions:
       contents: read # Ability to clone the project.
@@ -59,6 +61,7 @@ jobs:
 
   build:
     name: "Build"
+    if: false # disabled: requires repository secrets
     needs: [triage]
     uses: ./.github/workflows/job.build.yml
     secrets:
@@ -83,6 +86,7 @@ jobs:
   # never blocks a PR.
   confluent-smoke:
     name: "Confluent Smoke"
+    if: false # disabled: requires repository secrets
     needs: [triage]
     uses: ./.github/workflows/job.confluent-smoke.yml
     secrets:
@@ -99,8 +103,7 @@ jobs:
     name: "Review"
     uses: ./.github/workflows/job.review.yml
     needs: [triage]
-    # don't run for drafts or dependabot
-    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && needs.triage.outputs.sources == 'true'
+    if: false # disabled: requires repository secrets
     secrets:
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

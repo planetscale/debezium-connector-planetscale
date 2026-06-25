@@ -1,5 +1,6 @@
 name: "Deploy - Maven"
 
+# Disabled: requires repository secrets not yet configured for the public repo.
 on:
   workflow_call:
     inputs:
@@ -25,30 +26,30 @@ on:
         required: true
         description: "S3 Secret Access Key"
 
-  workflow_dispatch:
-    inputs:
-      runner:
-        description: "Runner"
-        required: false
-        type: string
-        default: "ubuntu-latest"
-      artifact:
-        description: "Artifact"
-        required: true
-        type: string
-      bucket:
-        description: "Bucket"
-        required: true
-        type: string
-        default: "planetscale-maven-dev"
-      run_id:
-        required: false
-        type: string
-        description: "Run ID"
-      environment:
-        description: "Environment"
-        required: true
-        default: sandbox
+  # workflow_dispatch:
+  #   inputs:
+  #     runner:
+  #       description: "Runner"
+  #       required: false
+  #       type: string
+  #       default: "ubuntu-latest"
+  #     artifact:
+  #       description: "Artifact"
+  #       required: true
+  #       type: string
+  #     bucket:
+  #       description: "Bucket"
+  #       required: true
+  #       type: string
+  #       default: "planetscale-maven-dev"
+  #     run_id:
+  #       required: false
+  #       type: string
+  #       description: "Run ID"
+  #     environment:
+  #       description: "Environment"
+  #       required: true
+  #       default: sandbox
 
 permissions:
   contents: read
@@ -60,6 +61,7 @@ concurrency:
 jobs:
   deploy-to-r2:
     name: "Maven"
+    if: false # disabled: requires repository secrets
     runs-on: ${{ inputs.runner }}
     environment: ${{ inputs.environment }}
     permissions:

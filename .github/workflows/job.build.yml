@@ -1,30 +1,31 @@
 name: "Build"
 
+# Disabled: requires repository secrets not yet configured for the public repo.
 on:
-  workflow_dispatch:
-    inputs:
-      runner:
-        description: "Runner"
-        default: "ubuntu-latest"
-      release:
-        description: "Release"
-        default: false
-        type: boolean
-      provenance:
-        description: "Build Provenance"
-        required: false
-        default: false
-        type: boolean
-      graph:
-        description: "Dependency Graph"
-        required: false
-        default: "generate-submit-and-upload"
-        type: string
-      build:
-        description: "Build"
-        required: false
-        default: true
-        type: boolean
+  # workflow_dispatch:
+  #   inputs:
+  #     runner:
+  #       description: "Runner"
+  #       default: "ubuntu-latest"
+  #     release:
+  #       description: "Release"
+  #       default: false
+  #       type: boolean
+  #     provenance:
+  #       description: "Build Provenance"
+  #       required: false
+  #       default: false
+  #       type: boolean
+  #     graph:
+  #       description: "Dependency Graph"
+  #       required: false
+  #       default: "generate-submit-and-upload"
+  #       type: string
+  #     build:
+  #       description: "Build"
+  #       required: false
+  #       default: true
+  #       type: boolean
 
   workflow_call:
     inputs:
@@ -90,7 +91,7 @@ concurrency:
 jobs:
   build-and-test:
     name: "Build and Test"
-    if: inputs.build
+    if: false # disabled: requires repository secrets
     runs-on: ${{ inputs.runner || vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     permissions:
       contents: read

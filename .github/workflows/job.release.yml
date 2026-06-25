@@ -1,5 +1,6 @@
 name: "Release"
 
+# Disabled: requires repository secrets not yet configured for the public repo.
 on:
   workflow_call:
     inputs:
@@ -22,6 +23,7 @@ permissions:
 jobs:
   publish:
     name: "Publish"
+    if: false # disabled: requires repository secrets
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     permissions:
       contents: write
