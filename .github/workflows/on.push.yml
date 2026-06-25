@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/ci-slsa-attest # TEMP: remove before merge — test push CI + attestation on this branch
     paths-ignore:
       - 'README.md'
       - '*.md'
