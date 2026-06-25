@@ -67,12 +67,24 @@ on:
       CODECOV_TOKEN:
         description: "Codecov Token"
         required: true
+      CONFLUENT_CLOUD_API_KEY:
+        description: "Confluent Cloud API Key"
+        required: false
+      CONFLUENT_CLOUD_API_SECRET:
+        description: "Confluent Cloud API Secret"
+        required: false
+      CONFLUENT_ENV:
+        description: "Confluent Environment ID"
+        required: false
+      CONFLUENT_CLUSTER:
+        description: "Confluent Cluster ID"
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.sha }}
+  group: build-${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -87,19 +99,24 @@ jobs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - name: "Setup: Harden Runner"
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           disable-sudo: true
           egress-policy: audit
           allowed-endpoints: >
             api.azul.com:443
             api.github.com:443
+            auth.docker.io:443
             cdn.azul.com:443
             dl.google.com:443
             gha.elide.zip:443
+            ghcr.io:443
             github.com:443
             gradle.elide.dev:443
             maven.elide.dev:443
+            production.cloudflare.docker.com:443
+            quay.io:443
+            registry-1.docker.io:443
             objects.githubusercontent.com:443
             plugins-artifacts.gradle.org:443
             plugins.gradle.org:443
@@ -118,7 +135,7 @@ jobs:
       - name: "Setup: JVM"
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
         with:
-          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '24' }}
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
           distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm' }}
       - name: "Setup: Elide"
         uses: elide-dev/setup-elide@d2f742321bf672300c0935839b6f5c6e562a965b # v4.1.0
@@ -136,7 +153,7 @@ jobs:
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: "Build: Gradle"
-        run: ./gradlew --scan build test check
+        run: ./gradlew --scan build test check connectDist
       - name: "Report: Tests (GHA)"
         uses: elide-tools/action-junit-report@d8d34855fefcfd2a15b5005b4cca125da5b41c8c
         if: success() || failure() # always run even if the previous step fails
@@ -144,30 +161,36 @@ jobs:
           report_paths: '**/build/test-results/test/TEST-*.xml'
       - name: "Report: Tests (Codecov)"
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@47f89e9acb64b76debcd5ea40642d25a4adced9f # v1
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: "Report: Coverage (Codecov)"
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           files: ./*/build/reports/kover/report.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
       - name: "Artifact: Maven Repository"
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: maven-repository-${{ steps.vars.outputs.sha_short || 'latest' }}
           path: ./debezium-planetscale/build/m2
           retention-days: 1
           compression-level: 2
       - name: "Artifact: Shadow JAR"
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: connector-${{ steps.vars.outputs.sha_short || 'latest' }}.jar
           path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
           compression-level: 0
+      - name: "Artifact: Connect ZIP"
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
+        with:
+          name: connect-zip-${{ steps.vars.outputs.sha_short || 'latest' }}
+          path: ./debezium-planetscale/build/connect/dist/*.zip
+          compression-level: 0
       - name: "Artifact: SBOM"
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: sbom-${{ steps.vars.outputs.sha_short || 'latest' }}.spdx.json
           path: ./debezium-planetscale/build/spdx/release.spdx.json

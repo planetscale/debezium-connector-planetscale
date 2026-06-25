@@ -27,7 +27,7 @@ tasks {
   val build by registering { doTaskForAllProjects() }
   val check by registering { doTaskForAllProjects() }
   val clean by registering { doTaskForAllProjects() }
-  val detekt by registering { doTaskForAllProjects() }
+  val connectDist by registering { dependsOn(gradle.includedBuild("debezium-planetscale").task(":connectDist")) }
   val publish by registering { dependsOn(gradle.includedBuild("debezium-planetscale").task(":publish")) }
   val resolveAndLockAll by registering { doTaskForAllProjects() }
   val spotlessApply by registering { doTaskForAllProjects() }

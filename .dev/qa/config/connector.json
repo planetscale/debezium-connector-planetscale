@@ -1,0 +1,17 @@
+{
+  "name": "planetscale-qa",
+  "config": {
+    "connector.class": "com.planetscale.debezium.PlanetscaleConnector",
+    "tasks.max": "1",
+    "topic.prefix": "fulfillment",
+    "database.hostname": "aws.connect.psdb.cloud",
+    "database.port": "443",
+    "database.user": "qa-placeholder-user",
+    "database.password": "qa-placeholder-password",
+    "snapshot.mode": "initial",
+    "vitess.tablet.type": "REPLICA",
+    "vitess.keyspace": "maxeng_etl",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter"
+  }
+}

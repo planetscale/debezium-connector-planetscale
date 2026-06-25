@@ -14,9 +14,6 @@ import com.diffplug.gradle.spotless.BaseKotlinExtension
 import com.diffplug.gradle.spotless.SpotlessExtension
 import com.planetscale.PlanetscaleBuild
 import com.planetscale.PlanetscaleBuild.debeziumVersion
-import io.gitlab.arturbosch.detekt.Detekt
-import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
-import io.gitlab.arturbosch.detekt.extensions.DetektExtension
 import kotlinx.atomicfu.plugin.gradle.AtomicFUPluginExtension
 import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 import org.gradle.accessors.dm.LibrariesForDebezium
@@ -43,8 +40,8 @@ import kotlin.io.path.readText
 
 // Runtime JVM target.
 private const val JVM_TARGET = "17"
-private const val JVM_TOOLCHAIN = "24"
-private const val JVM_TOOLCHAIN_VENDOR = "Oracle"
+private const val JVM_TOOLCHAIN = "25"
+private const val JVM_TOOLCHAIN_VENDOR = "GraalVM Community"
 
 // Minimum line coverage percentage to enforce.
 private const val MINIMUM_COVERAGE = 1
@@ -67,7 +64,6 @@ private val meaningfulConfigurations = listOfNotNull(
 private val stockPlugins = listOf(
   "com.adarshr.test-logger",
   "com.diffplug.spotless",
-  "io.gitlab.arturbosch.detekt",
   "kotlinx-atomicfu",
   "org.jetbrains.kotlin.jvm",
   "org.jetbrains.kotlin.plugin.atomicfu",
@@ -162,7 +158,6 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // configure extensions
     project.the<TestLoggerExtension>().apply { configureTestLogger() }
-    project.the<DetektExtension>().apply { configureDetekt(project, libs) }
     project.the<SpotlessExtension>().apply { configureSpotless(project, libs) }
     project.extensions.findByType<KoverProjectExtension>()?.apply { configureKover(project) }
 
@@ -179,7 +174,7 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
         targetCompatibility = JavaVersion.toVersion(JVM_TARGET)
 
         toolchain {
-          vendor.set(JvmVendorSpec.ORACLE)
+          vendor.set(JvmVendorSpec.of(JVM_TOOLCHAIN_VENDOR))
           languageVersion.set(JavaLanguageVersion.of(JVM_TOOLCHAIN))
           nativeImageCapable.set(true)
         }
@@ -300,29 +295,6 @@ private fun KoverProjectExtension.configureKover(project: Project) {
     dependsOn("koverXmlReport")
     dependsOn("koverHtmlReport")
     dependsOn("koverBinaryReport")
-  }
-}
-
-private fun DetektExtension.configureDetekt(project: Project, libs: LibrariesForLibs) {
-  buildUponDefaultConfig = true
-  allRules = false
-  parallel = true
-  enableCompilerPlugin.set(true)
-  config.from(project.trueProjectRoot().resolve("config").resolve("detekt.yml"))
-
-  project.tasks.withType<Detekt>().configureEach {
-    jvmTarget = JVM_TARGET
-
-    reports {
-      html.required.set(true)
-      sarif.required.set(true)
-    }
-  }
-  project.tasks.withType<DetektCreateBaselineTask>().configureEach {
-    jvmTarget = JVM_TARGET
-  }
-  project.dependencies {
-    "detektPlugins"(libs.plugin.detekt.rules.libraries.get())
   }
 }
 

@@ -24,11 +24,7 @@ abstract class AbstractTransform : Plugin {
     builder: DynamicType.Builder<*>,
     typeDescription: TypeDescription,
     classFileLocator: ClassFileLocator,
-  ): DynamicType.Builder<*> = transform(
-    builder,
-  ).also {
-    it.make()
-  }
+  ): DynamicType.Builder<*> = transform(builder)
 
   open fun transform(builder: DynamicType.Builder<*>): DynamicType.Builder<*> {
     return builder // by default, no transformation

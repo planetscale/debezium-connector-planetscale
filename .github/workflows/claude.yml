@@ -30,7 +30,7 @@ jobs:
       id-token: write
     steps:
       - name: "Setup: Harden Runner"
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           disable-sudo: true
           egress-policy: audit
@@ -42,7 +42,7 @@ jobs:
       - name: "Setup: JVM"
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
         with:
-          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '21' }}
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
           distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
       - name: "Setup: Elide"
         uses: elide-dev/setup-elide@d2f742321bf672300c0935839b6f5c6e562a965b # v4.1.0

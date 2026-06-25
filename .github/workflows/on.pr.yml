@@ -28,7 +28,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
     steps:
       - name: "Setup: Harden Runner"
-        uses: step-security/harden-runner@df199fb7be9f65074067a9eb93f12bb4c5547cf2 # v2.13.3
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           disable-sudo: true
           egress-policy: block
@@ -64,6 +64,10 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+      CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
+      CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
       actions: read # Needed for detection of GitHub Actions environment (SLSA).
       contents: write # Needed for provenance signing and ID (SLSA).
@@ -71,6 +75,25 @@ jobs:
       checks: write # Needed for test result publishing.
     with:
       build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
+
+  # Confluent Cloud smoke test. Absent from the release pipeline (on.release.yml), so it can never
+  # gate a release. On PRs it is BLOCKING when the full credential set is configured — a real
+  # provisioning failure fails this check. When credentials are absent or incomplete (e.g. a fork
+  # PR with no secrets) the reusable workflow's gate skips the test cleanly, so misconfiguration
+  # never blocks a PR.
+  confluent-smoke:
+    name: "Confluent Smoke"
+    needs: [triage]
+    uses: ./.github/workflows/job.confluent-smoke.yml
+    secrets:
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+      CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
+      KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
+      KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
+      PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
+    permissions:
+      contents: read
 
   review:
     name: "Review"

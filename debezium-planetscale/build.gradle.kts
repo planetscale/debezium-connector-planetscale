@@ -86,8 +86,17 @@ byteBuddy {
 dependencies {
   // debezium dependencies from upstream vitess adapter.
   api(debezium.core)
-  api(debezium.embedded)
-  runtimeOnly(libs.kafka.connect.api)
+  // NB: debezium-embedded is intentionally NOT a dependency. It is the standalone engine
+  // (unused by this Kafka Connect plugin) and, when packaged, Connect's plugin scanner tries
+  // to instantiate its anonymous `io.debezium.embedded.Transformations$1` (a Transformation
+  // with no no-arg ctor) → NoSuchMethodException during plugin discovery.
+  //
+  // kafka-connect-api must be on the (main + test) compile classpath. It was previously supplied
+  // transitively by debezium-embedded's `api`; with embedded removed we declare it directly.
+  // `implementation` keeps it on the runtime classpath too — matching the prior packaging — though
+  // under plugin isolation org.apache.kafka.* is always loaded from the worker's parent classloader,
+  // so the bundled copy is inert.
+  implementation(libs.kafka.connect.api)
 
   api(libs.vitess.grpc.client) {
     // these exclusions come from the `pom.xml` for the vitess connector.
@@ -117,9 +126,13 @@ dependencies {
   // test dependencies.
   testImplementation(platform(libs.testcontainers.bom))
   testImplementation(libs.testcontainers.junit.jupiter)
+  testImplementation(libs.testcontainers.core)
   testImplementation(libs.kotlin.test.junit5)
+  testRuntimeOnly(libs.mysql.connector.j)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
+  testImplementation(libs.grpc.netty.shaded)
+  testImplementation(libs.grpc.stub)
   testImplementation(debezium.connectors.vitess)
   testImplementation(debezium.connectors.mysql)
   testRuntimeOnly(libs.junit.platform.launcher)
@@ -137,12 +150,25 @@ publishing {
   }
   repositories {
     maven("file://${rootProject.layout.buildDirectory.dir("m2").get().asFile.absolutePath}")
+    val ghRepo = System.getenv("GITHUB_REPOSITORY")
+    if (ghRepo != null && enableSigning) {
+      maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/$ghRepo")
+        credentials {
+          username = System.getenv("GITHUB_ACTOR") ?: ""
+          password = System.getenv("GITHUB_TOKEN") ?: ""
+        }
+      }
+    }
   }
 }
 
+val enableGpgSigning = enableSigning && (findProperty("signing.gnupg.keyName") != null || System.getenv("GPG_KEY_ID") != null)
+
 signing {
   useGpgCmd()
-  isRequired = enableSigning
+  isRequired = enableGpgSigning
   sign(publishing.publications["maven"])
   sign(configurations.runtimeElements.get())
 }
@@ -199,6 +225,11 @@ val assembleConnectLib by tasks.registering(Copy::class) {
   from(kafkaConnect) {
     exclude("debezium-connector-vitess-*.jar") // packaged with final planetscale connector
     exclude("netty-transport-native-unix-common*.jar") // causes UDS compat issues
+    // The gRPC + Vitess client stacks are bundled & relocated inside the shaded adapter jar
+    // (io.grpc → com.planetscale.labs.io.grpc). Shipping the loose, un-relocated copies would
+    // re-introduce the host-runtime classloader collision that breaks gRPC name resolution.
+    exclude("grpc-*.jar")
+    exclude("vitess-client-*.jar", "vitess-grpc-client-*.jar")
   }
   from(tasks.shadowJar)
   into(connectOut.get().dir("lib"))
@@ -257,8 +288,8 @@ tasks {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
 
-  // Only enable signing when `planetscale.release` is set to true.
-  if (!enableSigning) {
+  // Only enable GPG signing when release mode AND a GPG key is configured.
+  if (!enableGpgSigning) {
     withType<Sign>().configureEach {
       enabled = false
     }
@@ -284,6 +315,22 @@ tasks {
 
     // `io.debezium.connector.mysql` → `com.planetscale.labs.io.debezium.connector.mysql`.
     relocate(mysqlPackage, "$packagePrefix.$mysqlPackage")
+
+    // Isolate the gRPC *core* stack from the host runtime. Confluent Cloud's worker ships
+    // its own io.grpc (incl. grpc-googleapis) on the parent classloader; our bundled io.grpc
+    // is a second, child-first copy, so gRPC's NameResolver ServiceLoader sees the host's
+    // googleapis provider extending a *different* io.grpc.NameResolverProvider → it fails with
+    // "not a subtype" and the connector cannot build a channel. Relocating io.grpc into our
+    // namespace makes our ServiceLoader look for `<pkg>.io.grpc.NameResolverProvider`, which the
+    // host's service files never reference, so the collision disappears.
+    //
+    // We deliberately do NOT relocate grpc-netty-shaded's own `io.grpc.netty.shaded.**` package:
+    // re-shading it would break its bundled-netty + tcnative native binding. Its references to
+    // gRPC *core* are still rewritten (they are not under the excluded prefix), so its providers
+    // continue to extend our relocated base classes.
+    relocate("io.grpc", "$packagePrefix.io.grpc") {
+      exclude("io.grpc.netty.shaded.**")
+    }
 
     // include local classes for the adapter surface.
     from(jar)
@@ -315,14 +362,25 @@ tasks {
   shadowJar {
     configureShadowedJar()
 
-    // only package our own transitive classes; this includes symbols which are needed for transform-injected hooks.
+    // Bundle our own transitive classes (transform-injected hooks), PLUS the gRPC and Vitess
+    // client stacks so their `io.grpc` references are rewritten by the relocation above and the
+    // connector ships a single, self-contained, relocated gRPC. grpc-netty (non-shaded) is
+    // excluded — the connector uses grpc-netty-shaded — so we don't drag in a UdsNameResolver
+    // provider that needs the (intentionally omitted) netty unix-common native lib.
     dependencyFilter.include {
-      it.moduleGroup == PlanetscaleBuild.PACKAGE_GROUP
+      it.moduleGroup == PlanetscaleBuild.PACKAGE_GROUP ||
+        it.moduleGroup == "io.vitess" ||
+        (it.moduleGroup == "io.grpc" && it.moduleName != "grpc-netty")
     }
   }
 
   val fullyShadowed by registering(ShadowJar::class) {
     configureShadowedJar(classifier = "all")
+  }
+
+  named("test", Test::class) {
+    outputs.cacheIf { false }
+    outputs.upToDateWhen { false }
   }
 
   named("run", JavaExec::class) {

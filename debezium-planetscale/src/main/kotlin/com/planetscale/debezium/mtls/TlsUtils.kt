@@ -86,9 +86,11 @@ internal object TlsUtils {
   private class PasswordHolder private constructor(
     private val password: CharArray,
   ) : Password {
-    override val isPresent: Boolean get() = true
+    private var consumed = false
+    override val isPresent: Boolean get() = !consumed
 
     override fun consume(): CharArray = password.copyOf().also {
+      consumed = true
       password.fill('\u0000')
     }
 
@@ -110,26 +112,30 @@ internal object TlsUtils {
   private fun TlsChannelCredentials.Builder.getCredentialsFromJks(
     stream: InputStream,
     password: Password,
-  ): ChannelCredentials = KeyStore.getInstance(KEY_TYPE_JKS).let { store ->
-    finalizeKeyManager(
-      store,
-      password.consumeSafe().also { pass ->
-        store.load(stream, pass)
-      },
-    )
+  ): ChannelCredentials {
+    val pass = password.consumeSafe()
+    return try {
+      val store = KeyStore.getInstance(KEY_TYPE_JKS)
+      store.load(stream, pass)
+      finalizeKeyManager(store, pass)
+    } finally {
+      pass?.fill('\u0000')
+    }
   }
 
   // Obtain credentials (a certificate and private key) from a P12 (PKCS#12) file.
   private fun TlsChannelCredentials.Builder.getCredentialsFromP12(
     stream: InputStream,
     password: Password,
-  ): ChannelCredentials = KeyStore.getInstance(KEY_TYPE_P12).let { store ->
-    finalizeKeyManager(
-      store,
-      password.consumeSafe().also { pass ->
-        store.load(stream, pass)
-      },
-    )
+  ): ChannelCredentials {
+    val pass = password.consumeSafe()
+    return try {
+      val store = KeyStore.getInstance(KEY_TYPE_P12)
+      store.load(stream, pass)
+      finalizeKeyManager(store, pass)
+    } finally {
+      pass?.fill('\u0000')
+    }
   }
 
   // Load trust store information.
@@ -180,9 +186,9 @@ internal object TlsUtils {
     val certB64 = config.getStringSafe(TLS_CREDENTIAL_BASE64)
     val tlsPassword = config.getStringSafe(TLS_CREDENTIAL_PASSWORD)
 
-    // load custom trust store, if provided
+    // load custom trust store, if provided (only when a certificate is also configured)
     val trustStore = config.getStringSafe(TLS_TRUST_FILE)
-    if (!trustStore.isNullOrBlank()) {
+    if (!trustStore.isNullOrBlank() && (certB64 != null || certFile != null)) {
       loadTrustStore(Path.of(trustStore))
     }
 
@@ -204,7 +210,7 @@ internal object TlsUtils {
   @Suppress("PrintStackTrace", "TooGenericExceptionCaught")
   fun tlsCredentialSafe(config: Configuration): ChannelCredentials? = try {
     tlsCredential(config)
-  } catch (err: RuntimeException) {
+  } catch (err: Exception) {
     err.printStackTrace()
     null
   }
