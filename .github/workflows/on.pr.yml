@@ -69,7 +69,10 @@ jobs:
       CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
       CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
+      contents: read # Needed to checkout and build.
       checks: write # Needed for test result publishing.
+      id-token: write # Needed by reusable build workflow permissions.
+      attestations: write # Needed by reusable build workflow permissions.
     with:
       build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
 
