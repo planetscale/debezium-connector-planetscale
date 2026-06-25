@@ -1,11 +1,10 @@
 name: "PR"
 
-# Disabled: requires repository secrets not yet configured for the public repo.
 on:
+  pull_request:
+    branches:
+      - main
   workflow_dispatch: {}
-# pull_request:
-#   branches:
-#     - main
 
 permissions:
   contents: read
@@ -17,7 +16,6 @@ concurrency:
 jobs:
   triage:
     name: "Triage"
-    if: false # disabled: requires repository secrets
     runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     permissions:
       contents: read # Ability to clone the project.
@@ -61,16 +59,8 @@ jobs:
 
   build:
     name: "Build"
-    if: false # disabled: requires repository secrets
     needs: [triage]
     uses: ./.github/workflows/job.build.yml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
-      CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
-      CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
       contents: read # Needed to checkout and build.
       checks: write # Needed for test result publishing.
@@ -86,11 +76,9 @@ jobs:
   # never blocks a PR.
   confluent-smoke:
     name: "Confluent Smoke"
-    if: false # disabled: requires repository secrets
     needs: [triage]
     uses: ./.github/workflows/job.confluent-smoke.yml
     secrets:
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
       CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
       KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
@@ -103,9 +91,9 @@ jobs:
     name: "Review"
     uses: ./.github/workflows/job.review.yml
     needs: [triage]
-    if: false # disabled: requires repository secrets
+    # don't run for drafts or dependabot; requires ANTHROPIC_API_KEY (checked in job.review.yml)
+    if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && needs.triage.outputs.sources == 'true'
     secrets:
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     permissions:
       contents: read # Ability to clone the project.

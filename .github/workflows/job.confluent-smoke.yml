@@ -24,13 +24,10 @@ name: "Confluent Smoke"
 #     for custom-connector commands; Cloud API keys do not authenticate them), KAFKA_API_KEY,
 #     KAFKA_API_SECRET, PSDB_PASSWORD
 
-# Disabled: requires repository secrets not yet configured for the public repo.
 on:
-  # workflow_dispatch: {}
+  workflow_dispatch: {}
   workflow_call:
     secrets:
-      GRADLE_ENCRYPTION_KEY:
-        required: false
       CONFLUENT_CLOUD_EMAIL:
         required: false
       CONFLUENT_CLOUD_PASSWORD:
@@ -53,7 +50,6 @@ concurrency:
 jobs:
   smoke:
     name: "Confluent Cloud smoke test"
-    if: false # disabled: requires repository secrets
     runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     permissions:
       contents: read
@@ -113,7 +109,6 @@ jobs:
         uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v4
         with:
           cache-read-only: 'true'
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: "Setup: Confluent CLI"
         if: steps.gate.outputs.run == 'true'

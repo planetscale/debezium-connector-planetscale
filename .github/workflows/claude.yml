@@ -1,16 +1,14 @@
 name: "AI - Claude Code"
 
-# Disabled: requires repository secrets not yet configured for the public repo.
 on:
-  workflow_dispatch: {}
-# issue_comment:
-#   types: [created]
-# pull_request_review_comment:
-#   types: [created]
-# issues:
-#   types: [opened, assigned]
-# pull_request_review:
-#   types: [submitted]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
 
 concurrency:
   group: claude-${{ github.event.pull_request.number || github.event.issue.number }}
@@ -20,7 +18,14 @@ jobs:
   claude:
     name: "Claude"
     runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
-    if: false # disabled: requires repository secrets
+    if: |
+      secrets.ANTHROPIC_API_KEY != '' &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     permissions:
       contents: read
       pull-requests: read

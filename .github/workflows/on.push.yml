@@ -1,20 +1,19 @@
 name: "CI"
 
-# Disabled: requires repository secrets not yet configured for the public repo.
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - '*.md'
+      - '**/*.md'
+      - 'docs/**/*.*'
+      - '.github/*.md'
+      - '.github/workflows/claude.yml'
+      - '.github/workflows/job.review.yml'
+      - '.github/workflows/job.deploy-repo.yml'
   workflow_dispatch: {}
-# push:
-#   branches:
-#     - main
-#   paths-ignore:
-#     - 'README.md'
-#     - '*.md'
-#     - '**/*.md'
-#     - 'docs/**/*.*'
-#     - '.github/*.md'
-#     - '.github/workflows/claude.yml'
-#     - '.github/workflows/job.review.yml'
-#     - '.github/workflows/job.deploy-repo.yml'
 
 permissions:
   contents: read
@@ -26,11 +25,7 @@ concurrency:
 jobs:
   build:
     name: "Build"
-    if: false # disabled: requires repository secrets
     uses: ./.github/workflows/job.build.yml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
       contents: read # Needed to checkout and build.
       id-token: write # Needed for build attestations.

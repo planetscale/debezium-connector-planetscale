@@ -1,6 +1,5 @@
 name: "AI - Claude Code Review"
 
-# Disabled: requires repository secrets not yet configured for the public repo.
 on:
   workflow_call:
     inputs:
@@ -17,22 +16,19 @@ on:
       ANTHROPIC_API_KEY:
         required: true
         description: "Anthropic API Key"
-      GRADLE_ENCRYPTION_KEY:
-        required: false
-        description: "Gradle Cache Encryption Key"
 
-  # workflow_dispatch:
-  #   inputs:
-  #     runner:
-  #       description: "Runner"
-  #       required: false
-  #       type: string
-  #       default: "ubuntu-latest"
-  #     cache_read_only:
-  #       description: "Cache: Read Only"
-  #       required: false
-  #       type: string
-  #       default: "true"
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: "Runner"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      cache_read_only:
+        description: "Cache: Read Only"
+        required: false
+        type: string
+        default: "true"
 
 permissions:
   contents: read
@@ -45,7 +41,11 @@ jobs:
   claude-review:
     name: "Claude"
     runs-on: ${{ inputs.runner || vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
-    if: false # disabled: requires repository secrets
+    if: |
+      secrets.ANTHROPIC_API_KEY != '' &&
+      !contains(github.event.pull_request.title, '[skip-review]') &&
+      !contains(github.event.pull_request.title, '[WIP]') &&
+      contains(github.event.pull_request.labels.*.name, 'ai-review')
     permissions:
       contents: read
       pull-requests: read
@@ -75,7 +75,6 @@ jobs:
           dependency-graph-continue-on-failure: 'true'
           cache-overwrite-existing: true
           cache-read-only: ${{ inputs.cache_read_only || 'true' }}
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: "Review: Claude"
         id: claude-review
         uses: anthropics/claude-code-action@6337623ebba10cf8c8214b507993f8062fd4ccfb # beta
