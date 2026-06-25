@@ -31,6 +31,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
+      contents: read # Needed to checkout and build.
       id-token: write # Needed for build attestations.
       attestations: write # Needed for build attestations.
       checks: write # Needed for test result publishing.
