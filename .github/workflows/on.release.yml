@@ -20,9 +20,8 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
-      actions: read
-      contents: write
       id-token: write
+      attestations: write
       checks: write
     with:
       release: true

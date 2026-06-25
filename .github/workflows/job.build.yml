@@ -11,7 +11,7 @@ on:
         default: false
         type: boolean
       provenance:
-        description: "SLSA Provenance"
+        description: "Build Provenance"
         required: false
         default: false
         type: boolean
@@ -95,6 +95,8 @@ jobs:
     permissions:
       contents: read
       checks: write
+      id-token: write
+      attestations: write
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
@@ -200,17 +202,22 @@ jobs:
         id: hash
         run: |
           echo "hashes=$(sha256sum ./debezium-planetscale/build/spdx/release.spdx.json ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar | base64 -w0)" >> "$GITHUB_OUTPUT"
-
-  provenance:
-    name: "SLSA"
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    needs: [build-and-test]
-    if: inputs.build && inputs.provenance
-    permissions:
-      actions: read # Needed for detection of GitHub Actions environment.
-      id-token: write # Needed for provenance signing and ID
-      contents: write # Needed for release uploads
-    with:
-      base64-subjects: "${{ needs.build-and-test.outputs.hashes }}"
-      upload-assets: ${{ inputs.release }}
-      private-repository: true
+      - name: "Attest: JAR Provenance"
+        if: inputs.provenance
+        continue-on-error: true # requires public repo
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
+        with:
+          subject-path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
+      - name: "Attest: Connect ZIP Provenance"
+        if: inputs.provenance
+        continue-on-error: true # requires public repo
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v2
+        with:
+          subject-path: ./debezium-planetscale/build/connect/dist/*.zip
+      - name: "Attest: SBOM"
+        if: inputs.provenance
+        continue-on-error: true # requires public repo
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
+        with:
+          subject-path: ./debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
+          sbom-path: ./debezium-planetscale/build/spdx/release.spdx.json

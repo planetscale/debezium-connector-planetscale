@@ -69,9 +69,6 @@ jobs:
       CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
       CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
-      actions: read # Needed for detection of GitHub Actions environment (SLSA).
-      contents: write # Needed for provenance signing and ID (SLSA).
-      id-token: write # Needed for release uploads (SLSA).
       checks: write # Needed for test result publishing.
     with:
       build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
