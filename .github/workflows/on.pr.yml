@@ -28,7 +28,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
     steps:
       - name: "Setup: Harden Runner"
-        uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           disable-sudo: true
           egress-policy: block
@@ -36,7 +36,7 @@ jobs:
             api.github.com:443
             github.com:443
       - name: "Setup: Checkout"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -48,12 +48,12 @@ jobs:
         shell: bash
         run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       - name: "Triage: PR Labels"
-        uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0
+        uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6.0.1
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: "Triage: PR Changes"
         id: filter
-        uses: step-security/paths-filter@27924be12bc7fa48eac88958847638304d58f386 # v3.0.4
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
           filters: .github/triage.yml
 
@@ -64,13 +64,36 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+      CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
+      CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
-      actions: read # Needed for detection of GitHub Actions environment (SLSA).
-      contents: write # Needed for provenance signing and ID (SLSA).
-      id-token: write # Needed for release uploads (SLSA).
+      contents: read # Needed to checkout and build.
       checks: write # Needed for test result publishing.
+      id-token: write # Needed by reusable build workflow permissions.
+      attestations: write # Needed by reusable build workflow permissions.
     with:
       build: ${{ needs.triage.outputs.sources == 'true' || needs.triage.outputs.deps == 'true' }}
+
+  # Confluent Cloud smoke test. Absent from the release pipeline (on.release.yml), so it can never
+  # gate a release. On PRs it is BLOCKING when the full credential set is configured — a real
+  # provisioning failure fails this check. When credentials are absent or incomplete (e.g. a fork
+  # PR with no secrets) the reusable workflow's gate skips the test cleanly, so misconfiguration
+  # never blocks a PR.
+  confluent-smoke:
+    name: "Confluent Smoke"
+    needs: [triage]
+    uses: ./.github/workflows/job.confluent-smoke.yml
+    secrets:
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+      CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
+      KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
+      KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
+      PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
+    permissions:
+      contents: read
 
   review:
     name: "Review"

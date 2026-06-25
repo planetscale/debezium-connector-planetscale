@@ -1,0 +1,3 @@
+*
+!debezium-planetscale/build/libs/planetscale-debezium-adapter-*.jar
+debezium-planetscale/build/libs/*-all.jar

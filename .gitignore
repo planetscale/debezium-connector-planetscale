@@ -1,3 +1,5 @@
+.DS_Store
+
 # Ignore Gradle project-specific cache directory
 .gradle
 
@@ -6,3 +8,6 @@ build
 bin
 .kotlin/
 node_modules/
+
+# Local QA harness: downloaded foreign gRPC jars (fetched by scripts/download-host-grpc.sh)
+.dev/qa/worker/

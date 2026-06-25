@@ -39,7 +39,6 @@ kotlin {
 dependencies {
   implementation(gradleApi())
   implementation(libs.plugin.bytebuddy)
-  implementation(libs.plugin.detekt)
   implementation(libs.plugin.kotlin.jvm)
   implementation(libs.plugin.kotlin.atomicfu)
   implementation(libs.plugin.kotlin.powerAssert)

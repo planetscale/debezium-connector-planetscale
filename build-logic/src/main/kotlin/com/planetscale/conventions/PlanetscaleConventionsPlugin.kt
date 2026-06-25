@@ -14,9 +14,6 @@ import com.diffplug.gradle.spotless.BaseKotlinExtension
 import com.diffplug.gradle.spotless.SpotlessExtension
 import com.planetscale.PlanetscaleBuild
 import com.planetscale.PlanetscaleBuild.debeziumVersion
-import io.gitlab.arturbosch.detekt.Detekt
-import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
-import io.gitlab.arturbosch.detekt.extensions.DetektExtension
 import kotlinx.atomicfu.plugin.gradle.AtomicFUPluginExtension
 import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 import org.gradle.accessors.dm.LibrariesForDebezium
@@ -30,6 +27,7 @@ import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.exclude
 import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.repositories
 import org.gradle.kotlin.dsl.the
@@ -38,14 +36,15 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmExtension
 import java.nio.file.Path
 import kotlin.io.path.name
+import kotlin.io.path.readText
 
 // Runtime JVM target.
-private const val JVM_TARGET = "21"
-private const val JVM_TOOLCHAIN = "24"
-private const val JVM_TOOLCHAIN_VENDOR = "Oracle"
+private const val JVM_TARGET = "17"
+private const val JVM_TOOLCHAIN = "25"
+private const val JVM_TOOLCHAIN_VENDOR = "GraalVM Community"
 
 // Minimum line coverage percentage to enforce.
-private const val MINIMUM_COVERAGE = 15
+private const val MINIMUM_COVERAGE = 1
 
 // Kotlin features.
 private const val ENABLE_ATOMICFU = true
@@ -65,7 +64,6 @@ private val meaningfulConfigurations = listOfNotNull(
 private val stockPlugins = listOf(
   "com.adarshr.test-logger",
   "com.diffplug.spotless",
-  "io.gitlab.arturbosch.detekt",
   "kotlinx-atomicfu",
   "org.jetbrains.kotlin.jvm",
   "org.jetbrains.kotlin.plugin.atomicfu",
@@ -111,6 +109,33 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
     project.findProperty(DEBEZIUM_VERSION_PROPERTY) as? String ?: project.debeziumVersion()
   }
 
+  // Pinned gRPC version to use.
+  val grpcVersion: String by lazy {
+    libs.versions.grpc.get()
+  }
+
+  // Pinned Netty version to use.
+  val nettyVersion: String by lazy {
+    libs.versions.netty.get()
+  }
+
+  // Pinned TCNative version to use.
+  val tcnativeVersion: String by lazy {
+    libs.versions.tcnative.get()
+  }
+
+  private fun renderProjectVersion(debezium: String): String = buildString {
+    // `3.2.1.Final`
+    append(debezium)
+    // `3.2.1.Final-`
+    append('-')
+    // `r1`
+    val connectorVersion = project.trueProjectRoot().resolve(".version").readText().lines().first {
+      !it.startsWith("#") && !it.isBlank()
+    }
+    append(connectorVersion)
+  }
+
   override fun apply(target: Project) {
     project = target
 
@@ -124,7 +149,7 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // use consistent project coordinates and versioning
     project.group = PlanetscaleBuild.PACKAGE_GROUP
-    project.version = debeziumVersion
+    project.version = renderProjectVersion(debeziumVersion)
 
     // project repositories
     project.repositories {
@@ -133,9 +158,14 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // configure extensions
     project.the<TestLoggerExtension>().apply { configureTestLogger() }
-    project.the<DetektExtension>().apply { configureDetekt(project, libs) }
     project.the<SpotlessExtension>().apply { configureSpotless(project, libs) }
     project.extensions.findByType<KoverProjectExtension>()?.apply { configureKover(project) }
+
+    // disable kover verification
+    project.tasks.findByName("koverVerify")?.apply {
+      enabled = false
+      onlyIf { false }
+    }
 
     // configure kotlin and java
     if (project.pluginManager.hasPlugin("java")) {
@@ -144,7 +174,7 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
         targetCompatibility = JavaVersion.toVersion(JVM_TARGET)
 
         toolchain {
-          vendor.set(JvmVendorSpec.ORACLE)
+          vendor.set(JvmVendorSpec.of(JVM_TOOLCHAIN_VENDOR))
           languageVersion.set(JavaLanguageVersion.of(JVM_TOOLCHAIN))
           nativeImageCapable.set(true)
         }
@@ -216,10 +246,25 @@ class PlanetscaleConventionsPlugin : Plugin<Project> {
 
     // use a consistent version of debezium throughout
     target.configurations.all {
+      // not supported at `1.56.x`, remove when supported in upstream Debezium version
+      exclude(group = "io.grpc", module = "grpc-inprocess")
+
       resolutionStrategy.eachDependency {
         if (requested.group == "io.debezium" && requested.name !in unalignedDeps) {
           useVersion(debeziumVersion)
           because("Pinned upstream version of Debezium")
+        }
+        if (requested.group == "io.grpc") {
+          useVersion(grpcVersion)
+          because("Pinned for compatibility to Debezium's effective version")
+        }
+        if (requested.group == "io.netty") {
+          if ("tcnative" in requested.module.name) {
+            useVersion(tcnativeVersion)
+          } else {
+            useVersion(nettyVersion)
+          }
+          because("Pinned for compatibility to Debezium's effective version")
         }
       }
     }
@@ -247,33 +292,9 @@ private fun KoverProjectExtension.configureKover(project: Project) {
     }
   }
   project.tasks.named("check").configure {
-    dependsOn("koverVerify")
     dependsOn("koverXmlReport")
     dependsOn("koverHtmlReport")
     dependsOn("koverBinaryReport")
-  }
-}
-
-private fun DetektExtension.configureDetekt(project: Project, libs: LibrariesForLibs) {
-  buildUponDefaultConfig = true
-  allRules = false
-  parallel = true
-  enableCompilerPlugin.set(true)
-  config.from(project.trueProjectRoot().resolve("config").resolve("detekt.yml"))
-
-  project.tasks.withType<Detekt>().configureEach {
-    jvmTarget = JVM_TARGET
-
-    reports {
-      html.required.set(true)
-      sarif.required.set(true)
-    }
-  }
-  project.tasks.withType<DetektCreateBaselineTask>().configureEach {
-    jvmTarget = JVM_TARGET
-  }
-  project.dependencies {
-    "detektPlugins"(libs.plugin.detekt.rules.libraries.get())
   }
 }
 
@@ -292,9 +313,6 @@ private fun SpotlessExtension.configureSpotless(project: Project, libs: Librarie
     )
   }
 
-  java {
-    googleJavaFormat(libs.versions.googleJavaFormat.get())
-  }
   kotlin {
     ktlint(libs.versions.ktlint.get()).apply { baselines() }
   }

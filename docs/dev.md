@@ -78,7 +78,7 @@ Then, the connector dependency can be added with:
 ```kotlin
 dependencies {
   // Version matches the upstream version of the Vitess connector.
-  implementation("com.planetscale.labs:debezium-planetscale:3.1.2.Final")
+  implementation("com.planetscale.labs:debezium-planetscale:3.2.1.Final")
 }
 ```
 

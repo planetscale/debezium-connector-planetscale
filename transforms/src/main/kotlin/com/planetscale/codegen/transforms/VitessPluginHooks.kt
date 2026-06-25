@@ -14,7 +14,6 @@ import net.bytebuddy.dynamic.DynamicType
 @Suppress("unused")
 class VitessPluginHooks : Plugin {
   private val plugins: List<Plugin> = listOf(
-    VitessHello(),
     VitessManagedChannel(),
   )
 
@@ -30,9 +29,7 @@ class VitessPluginHooks : Plugin {
     builder: DynamicType.Builder<*>,
     typeDescription: TypeDescription,
     classFileLocator: ClassFileLocator,
-  ): DynamicType.Builder<*> = builder.apply {
-    plugins.forEach { plugin ->
-      plugin.apply(this, typeDescription, classFileLocator)
-    }
+  ): DynamicType.Builder<*> = plugins.fold(builder) { acc, plugin ->
+    plugin.apply(acc, typeDescription, classFileLocator)
   }
 }

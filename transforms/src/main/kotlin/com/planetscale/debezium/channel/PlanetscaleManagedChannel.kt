@@ -13,10 +13,14 @@ import io.grpc.*
 import net.bytebuddy.implementation.bind.annotation.FieldValue
 import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.security.KeyStore
 import java.util.*
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.TrustManagerFactory
 
-// Constants used for channel initialization and configuration.
 private const val CONFIG_FIELD = "config"
 private const val AUTHORIZATION_HEADER = "authorization"
 private const val BASIC_AUTH = "Basic"
@@ -26,28 +30,97 @@ private const val BASIC_AUTH = "Basic"
   private val authorizationHeader = Metadata.Key.of(AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER)
   private val logger by lazy { LoggerFactory.getLogger(PlanetscaleManagedChannel::class.java) }
 
+  // mTLS config keys (mirrors TlsUtils constants from debezium-planetscale module)
+  private const val TLS_CREDENTIAL_FILE = "planetscale.tls.certificate.file"
+  private const val TLS_CREDENTIAL_BASE64 = "planetscale.tls.certificate.b64"
+  private const val TLS_CREDENTIAL_PASSWORD = "planetscale.tls.certificate.password"
+  private const val TLS_TRUST_FILE = "planetscale.tls.truststore.file"
+
   @JvmStatic private lateinit var config: VitessConnectorConfig
 
-  @JvmStatic private fun managedChannelBuilder(host: String?, port: Int?, config: VitessConnectorConfig) =
-    ManagedChannelBuilder.forAddress(
-      host ?: PlanetscaleConstants.HOST,
-      port ?: PlanetscaleConstants.PORT,
-    ).also {
-      // mount configuration for adapter (we use it later for authorization)
-      this.config = config
-    }
-
   @JvmStatic fun newChannel(
-    @FieldValue(CONFIG_FIELD) config: VitessConnectorConfig,
+    @FieldValue(CONFIG_FIELD) callerConfig: VitessConnectorConfig,
     host: String?,
     port: Int?,
     maxMessageSize: Int,
-  ): ManagedChannel = managedChannelBuilder(host, port, config)
-    .useTransportSecurity()
-    .maxInboundMessageSize(maxMessageSize)
-    .intercept(this)
-    .keepAliveTime(config.keepaliveInterval.toMillis(), TimeUnit.MILLISECONDS)
-    .build()
+  ): ManagedChannel {
+    this.config = callerConfig
+    val resolvedHost = host ?: PlanetscaleConstants.HOST
+    val resolvedPort = port ?: PlanetscaleConstants.PORT
+    val rawConfig = callerConfig.config
+
+    val channelCredentials = if (rawConfig.hasKey(TLS_CREDENTIAL_FILE) || rawConfig.hasKey(TLS_CREDENTIAL_BASE64)) {
+      loadTlsCredentials(rawConfig)
+    } else {
+      null
+    }
+
+    val builder = if (channelCredentials != null) {
+      Grpc.newChannelBuilderForAddress(resolvedHost, resolvedPort, channelCredentials)
+    } else {
+      ManagedChannelBuilder.forAddress(resolvedHost, resolvedPort).useTransportSecurity()
+    }
+    return builder
+      .maxInboundMessageSize(maxMessageSize)
+      .intercept(this)
+      .keepAliveTime(config.keepaliveInterval.toMillis(), TimeUnit.MILLISECONDS)
+      .build()
+  }
+
+  /** Load mTLS channel credentials from config (mirrors TlsUtils.tlsCredential logic). */
+  @JvmStatic private fun loadTlsCredentials(config: io.debezium.config.Configuration): ChannelCredentials? {
+    val certFile = config.getString(TLS_CREDENTIAL_FILE)
+    val certB64 = config.getString(TLS_CREDENTIAL_BASE64)
+    val password = config.getString(TLS_CREDENTIAL_PASSWORD)
+    val trustFile = config.getString(TLS_TRUST_FILE)
+
+    val tlsBuilder = TlsChannelCredentials.newBuilder()
+
+    // Load custom trust store if provided
+    if (!trustFile.isNullOrBlank() && (certB64 != null || certFile != null)) {
+      val path = Path.of(trustFile)
+      val ext = path.toString().substringAfterLast('.').lowercase()
+      val storeType = if (ext == "jks") "JKS" else "PKCS12"
+      val ks = KeyStore.getInstance(storeType)
+      Files.newInputStream(path).buffered().use { ks.load(it, null) }
+      val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+      tmf.init(ks)
+      @Suppress("SpreadOperator")
+      tlsBuilder.trustManager(*tmf.trustManagers)
+    }
+
+    // Load client certificate
+    val pass = password?.toCharArray()
+    return try {
+      when {
+        certB64 != null -> {
+          val bytes = Base64.getDecoder().decode(certB64)
+          val ks = KeyStore.getInstance("PKCS12")
+          bytes.inputStream().use { ks.load(it, pass) }
+          val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+          kmf.init(ks, pass)
+          @Suppress("SpreadOperator")
+          tlsBuilder.keyManager(*kmf.keyManagers)
+          tlsBuilder.build()
+        }
+        certFile != null -> {
+          val path = Path.of(certFile)
+          val ext = path.toString().substringAfterLast('.').lowercase()
+          val storeType = if (ext == "jks") "JKS" else "PKCS12"
+          val ks = KeyStore.getInstance(storeType)
+          Files.newInputStream(path).buffered().use { ks.load(it, pass) }
+          val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+          kmf.init(ks, pass)
+          @Suppress("SpreadOperator")
+          tlsBuilder.keyManager(*kmf.keyManagers)
+          tlsBuilder.build()
+        }
+        else -> null
+      }
+    } finally {
+      pass?.fill('\u0000')
+    }
+  }
 
   override fun <ReqT : Any?, RespT : Any?> interceptCall(
     method: MethodDescriptor<ReqT?, RespT?>,

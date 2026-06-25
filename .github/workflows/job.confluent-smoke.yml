@@ -1,0 +1,152 @@
+name: "Confluent Smoke"
+
+# Reusable smoke test: builds the connector archive, uploads it to Confluent Cloud as a Custom
+# Connector plugin, provisions a connector, polls its status, and tears everything down. This is
+# the authoritative cloud gate for the gRPC-relocation / packaging fixes — the fast inner loop is
+# the local Docker harness (.dev/qa/scripts/run.sh).
+#
+# It is wired into PR CI (on.pr.yml) only, never the release pipeline. When the full credential set
+# is configured the smoke step is BLOCKING — a provisioning failure fails the PR check. When the
+# credentials are absent or incomplete (e.g. a fork PR with no secrets), the gate skips the test
+# cleanly so it never blocks on misconfiguration. It is deliberately absent from on.release.yml, so
+# it can never gate a release.
+#
+# Security note: this workflow consumes only `secrets.*` and `vars.*` (trusted). No untrusted
+# event data (issue/PR/commit text, head_ref, ...) is referenced, and every run: step reads its
+# inputs from `env:` rather than interpolating `${{ }}` into the shell — so there is no
+# command-injection surface.
+#
+# Configuration (the gate skips cleanly unless ALL of these are set):
+#   Repository variables (Settings -> Variables): CONFLUENT_ENV, CONFLUENT_CLUSTER, PSDB_HOST,
+#     PSDB_USER, PSDB_KEYSPACE  (TOPIC_PREFIX optional, defaults to 'fulfillment')
+#   Repository secrets   (Settings -> Secrets):   CONFLUENT_CLOUD_EMAIL, CONFLUENT_CLOUD_PASSWORD
+#     (a NON-SSO Confluent Cloud user with admin RBAC — the CLI requires a username/password session
+#     for custom-connector commands; Cloud API keys do not authenticate them), KAFKA_API_KEY,
+#     KAFKA_API_SECRET, PSDB_PASSWORD
+
+on:
+  workflow_dispatch: {}
+  workflow_call:
+    secrets:
+      GRADLE_ENCRYPTION_KEY:
+        required: false
+      CONFLUENT_CLOUD_EMAIL:
+        required: false
+      CONFLUENT_CLOUD_PASSWORD:
+        required: false
+      KAFKA_API_KEY:
+        required: false
+      KAFKA_API_SECRET:
+        required: false
+      PSDB_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # one smoke run per ref; cancel superseded ones so they don't collide on the shared env
+  group: confluent-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: "Confluent Cloud smoke test"
+    runs-on: ${{ vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    steps:
+      - name: "Setup: Harden Runner"
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
+      - name: "Gate: credentials configured?"
+        id: gate
+        # Validates the FULL required set (everything confluent-smoke.sh needs). If any is missing
+        # the test skips cleanly — so an absent/partial config (e.g. a fork PR with no secrets)
+        # never blocks the PR. Only a genuine provisioning failure, with all creds present, blocks.
+        env:
+          CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+          CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
+          CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
+          CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
+          KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
+          KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
+          PSDB_HOST: ${{ vars.PSDB_HOST }}
+          PSDB_USER: ${{ vars.PSDB_USER }}
+          PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
+          PSDB_KEYSPACE: ${{ vars.PSDB_KEYSPACE }}
+        run: |
+          missing=""
+          for v in CONFLUENT_CLOUD_EMAIL CONFLUENT_CLOUD_PASSWORD CONFLUENT_ENV CONFLUENT_CLUSTER \
+                   KAFKA_API_KEY KAFKA_API_SECRET PSDB_HOST PSDB_USER PSDB_PASSWORD PSDB_KEYSPACE; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "Confluent smoke test skipped — missing credentials/vars:$missing" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "All credentials present — running smoke test (blocking)." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Setup: Checkout"
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: "Setup: JVM"
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
+        with:
+          java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm' }}
+
+      - name: "Setup: Gradle"
+        if: steps.gate.outputs.run == 'true'
+        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v4
+        with:
+          cache-read-only: 'true'
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: "Setup: Confluent CLI"
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          curl -sL --http1.1 https://cnfl.io/cli | sh -s -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: "Setup: Confluent login"
+        if: steps.gate.outputs.run == 'true'
+        # custom-connector commands require a user-session login; Cloud API keys do not authenticate
+        # them. `confluent login` reads CONFLUENT_CLOUD_EMAIL/PASSWORD non-interactively (non-SSO).
+        # The session persists via $HOME for the build/smoke steps below.
+        env:
+          CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
+          CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
+          CONFLUENT_CLOUD_ORGANIZATION_ID: ${{ vars.CONFLUENT_CLOUD_ORGANIZATION_ID }}
+        run: confluent login
+
+      - name: "Build: Connector archive"
+        if: steps.gate.outputs.run == 'true'
+        run: ./gradlew :debezium-planetscale:connectDist -x test
+
+      - name: "Smoke: Confluent Cloud provisioning"
+        if: steps.gate.outputs.run == 'true'
+        env:
+          # CLI session is already established by the "Setup: Confluent login" step above.
+          # target env/cluster (non-sensitive -> repo variables)
+          CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
+          CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
+          # connector config
+          KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
+          KAFKA_API_SECRET: ${{ secrets.KAFKA_API_SECRET }}
+          PSDB_HOST: ${{ vars.PSDB_HOST }}
+          PSDB_USER: ${{ vars.PSDB_USER }}
+          PSDB_PASSWORD: ${{ secrets.PSDB_PASSWORD }}
+          PSDB_KEYSPACE: ${{ vars.PSDB_KEYSPACE }}
+          TOPIC_PREFIX: ${{ vars.TOPIC_PREFIX || 'fulfillment' }}
+        run: bash .dev/qa/scripts/confluent-smoke.sh

@@ -6,9 +6,8 @@
  */
 @file:Suppress("VulnerableLibrariesLocal", "unused")
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.planetscale.PlanetscaleBuild
-import com.planetscale.codegen.transforms.VitessHello
-import com.planetscale.codegen.transforms.VitessManagedChannel
 import dev.sigstore.sign.tasks.SigstoreSignFilesTask
 import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
@@ -39,6 +38,11 @@ val enableSigning = findProperty("planetscale.release") == "true"
 val enableSigstore = findProperty("planetscale.sigstore") == "true"
 val planetscaleAdapter: Configuration by configurations.creating
 val debeziumConnectors: Configuration by configurations.creating
+
+val kafkaConnect: Configuration by configurations.creating {
+  isCanBeResolved = true
+  extendsFrom(configurations.runtimeClasspath.get(), configurations.compileClasspath.get())
+}
 
 listOf(planetscaleAdapter, debeziumConnectors).forEach {
   it.resolutionStrategy.activateDependencyLocking()
@@ -82,8 +86,17 @@ byteBuddy {
 dependencies {
   // debezium dependencies from upstream vitess adapter.
   api(debezium.core)
-  api(debezium.embedded)
-  runtimeOnly(libs.kafka.connect.api)
+  // NB: debezium-embedded is intentionally NOT a dependency. It is the standalone engine
+  // (unused by this Kafka Connect plugin) and, when packaged, Connect's plugin scanner tries
+  // to instantiate its anonymous `io.debezium.embedded.Transformations$1` (a Transformation
+  // with no no-arg ctor) → NoSuchMethodException during plugin discovery.
+  //
+  // kafka-connect-api must be on the (main + test) compile classpath. It was previously supplied
+  // transitively by debezium-embedded's `api`; with embedded removed we declare it directly.
+  // `implementation` keeps it on the runtime classpath too — matching the prior packaging — though
+  // under plugin isolation org.apache.kafka.* is always loaded from the worker's parent classloader,
+  // so the bundled copy is inert.
+  implementation(libs.kafka.connect.api)
 
   api(libs.vitess.grpc.client) {
     // these exclusions come from the `pom.xml` for the vitess connector.
@@ -97,6 +110,9 @@ dependencies {
 
   // extra dependencies needed by the planetscale connector.
   api(libs.grpc.auth)
+  api(libs.grpc.netty.shaded)
+  kafkaConnect(libs.netty.transport.epoll)
+  kafkaConnect(libs.grpc.netty.shaded)
 
   // kotlin and kotlin extensions.
   api(kotlin("stdlib"))
@@ -110,10 +126,15 @@ dependencies {
   // test dependencies.
   testImplementation(platform(libs.testcontainers.bom))
   testImplementation(libs.testcontainers.junit.jupiter)
+  testImplementation(libs.testcontainers.core)
   testImplementation(libs.kotlin.test.junit5)
+  testRuntimeOnly(libs.mysql.connector.j)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
+  testImplementation(libs.grpc.netty.shaded)
+  testImplementation(libs.grpc.stub)
   testImplementation(debezium.connectors.vitess)
+  testImplementation(debezium.connectors.mysql)
   testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -129,12 +150,25 @@ publishing {
   }
   repositories {
     maven("file://${rootProject.layout.buildDirectory.dir("m2").get().asFile.absolutePath}")
+    val ghRepo = System.getenv("GITHUB_REPOSITORY")
+    if (ghRepo != null && enableSigning) {
+      maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/$ghRepo")
+        credentials {
+          username = System.getenv("GITHUB_ACTOR") ?: ""
+          password = System.getenv("GITHUB_TOKEN") ?: ""
+        }
+      }
+    }
   }
 }
 
+val enableGpgSigning = enableSigning && (findProperty("signing.gnupg.keyName") != null || System.getenv("GPG_KEY_ID") != null)
+
 signing {
   useGpgCmd()
-  isRequired = enableSigning
+  isRequired = enableGpgSigning
   sign(publishing.publications["maven"])
   sign(configurations.runtimeElements.get())
 }
@@ -147,6 +181,22 @@ val debeziumClasses by tasks.registering(Copy::class) {
   }
   into(layout.buildDirectory.dir("debezium/classes"))
   include("**/*.class")
+  exclude("**/VitessColumnValue*") // fix: geom and custom types
+  exclude("**/VitessReplicationConnection*") // fix: private `newChannel` override
+  exclude("**/VitessValueConverter*") // fix: custom type support (geo)
+  exclude("**/VitessDatabaseSchema*") // fix: custom type support (geo)
+  exclude("**/VitessConnectorConfig*") // fix: overrides for cell hint, etc
+  exclude("**/VitessMetadata*") // fix: backtick-quote keyspace identifiers (e.g. hyphenated names)
+  finalizedBy(debeziumClassesPatched)
+}
+
+val debeziumClassesPatched by tasks.registering(Copy::class) {
+  group = "build"
+  description = "Copy patched Debezium classes to build directory"
+  from(layout.buildDirectory.dir("classes/java/main"))
+  into(layout.buildDirectory.dir("debezium/classes"))
+  include("**/*.class")
+  dependsOn(tasks.compileJava)
 }
 
 val transformVitess by tasks.registering(ByteBuddyTask::class) {
@@ -155,20 +205,91 @@ val transformVitess by tasks.registering(ByteBuddyTask::class) {
   source = layout.buildDirectory.dir("debezium/classes")
   target = layout.buildDirectory.dir("classes/kotlin-transformed/main")
   classPath.from(debeziumClasses, configurations.compileClasspath, configurations.runtimeClasspath)
+  dependsOn(tasks.compileKotlin, debeziumClasses, debeziumClassesPatched)
+}
 
-  dependsOn(tasks.compileKotlin, debeziumClasses)
-  transformation { plugin = VitessHello::class.java }
-  transformation { plugin = VitessManagedChannel::class.java }
+val connectRoot = layout.buildDirectory.dir("connect")
+val connectOut = layout.buildDirectory.dir("connect/pkg")
+val connectDistRoot = layout.buildDirectory.dir("connect/dist")
+
+// `doc/` directory includes `README.md` and `LICENSE.txt`
+val assembleConnectDoc by tasks.registering(Copy::class) {
+  from(layout.projectDirectory.dir("src/main/config")) {
+    include("README.md", "LICENSE.txt")
+  }
+  into(connectOut.get().dir("doc"))
+}
+
+// `lib/` directory includes the transformed vitess connector and all dependencies
+val assembleConnectLib by tasks.registering(Copy::class) {
+  from(kafkaConnect) {
+    exclude("debezium-connector-vitess-*.jar") // packaged with final planetscale connector
+    exclude("netty-transport-native-unix-common*.jar") // causes UDS compat issues
+    // The gRPC + Vitess client stacks are bundled & relocated inside the shaded adapter jar
+    // (io.grpc → com.planetscale.labs.io.grpc). Shipping the loose, un-relocated copies would
+    // re-introduce the host-runtime classloader collision that breaks gRPC name resolution.
+    exclude("grpc-*.jar")
+    exclude("vitess-client-*.jar", "vitess-grpc-client-*.jar")
+  }
+  from(tasks.shadowJar)
+  into(connectOut.get().dir("lib"))
+}
+
+// connect root directory includes the transformed vitess connector and all dependencies
+val assembleConnectLayout by tasks.registering(Copy::class) {
+  from(layout.projectDirectory.dir("src/main/config")) {
+    include("manifest.json")
+  }
+  into(connectOut.get())
+
+  dependsOn(
+    assembleConnectDoc,
+    assembleConnectLib,
+  )
+}
+
+val assembleConnectDist by tasks.registering(Copy::class) {
+  from(connectOut.get())
+  into(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-$version"))
+
+  dependsOn(
+    assembleConnectDoc,
+    assembleConnectLib,
+    assembleConnectLayout,
+  )
+}
+
+val assembleConnectZip by tasks.registering(Zip::class) {
+  group = "build"
+  description = "Assemble the connector distribution ZIP for Kafka Connect"
+  archiveFileName.set("planetscale-debezium-connector-planetscale-$version.zip")
+  destinationDirectory.set(connectDistRoot.get())
+  from(connectDistRoot.get().dir("packages/planetscale-debezium-connector-planetscale-$version"))
+  dependsOn(assembleConnectDist)
+}
+
+val connectDist by tasks.registering {
+  group = "build"
+  description = "Assemble the connector distribution for Kafka Connect"
+
+  dependsOn(
+    assembleConnectDoc,
+    assembleConnectLib,
+    assembleConnectLayout,
+    assembleConnectDist,
+    assembleConnectZip,
+  )
 }
 
 tasks {
   jar {
     from(transformVitess)
     dependsOn(transformVitess)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
 
-  // Only enable signing when `planetscale.release` is set to true.
-  if (!enableSigning) {
+  // Only enable GPG signing when release mode AND a GPG key is configured.
+  if (!enableGpgSigning) {
     withType<Sign>().configureEach {
       enabled = false
     }
@@ -184,20 +305,10 @@ tasks {
     finalizedBy(transformVitess)
   }
 
-  named("run", JavaExec::class) {
-    dependsOn(shadowJar)
-
-    classpath = files(
-      configurations.compileClasspath,
-      configurations.runtimeClasspath,
-      shadowJar.get().outputs.files.single(),
-    )
-  }
-
-  shadowJar {
-    archiveClassifier = ""
+  fun ShadowJar.configureShadowedJar(classifier: String = "") {
     archiveBaseName = "planetscale-debezium-adapter"
     includeEmptyDirs = false
+    archiveClassifier = classifier
 
     // `io.debezium.connector.vitess` → `com.planetscale.labs.io.debezium.connector.vitess`.
     relocate(vitessPackage, "$packagePrefix.$vitessPackage")
@@ -205,16 +316,28 @@ tasks {
     // `io.debezium.connector.mysql` → `com.planetscale.labs.io.debezium.connector.mysql`.
     relocate(mysqlPackage, "$packagePrefix.$mysqlPackage")
 
+    // Isolate the gRPC *core* stack from the host runtime. Confluent Cloud's worker ships
+    // its own io.grpc (incl. grpc-googleapis) on the parent classloader; our bundled io.grpc
+    // is a second, child-first copy, so gRPC's NameResolver ServiceLoader sees the host's
+    // googleapis provider extending a *different* io.grpc.NameResolverProvider → it fails with
+    // "not a subtype" and the connector cannot build a channel. Relocating io.grpc into our
+    // namespace makes our ServiceLoader look for `<pkg>.io.grpc.NameResolverProvider`, which the
+    // host's service files never reference, so the collision disappears.
+    //
+    // We deliberately do NOT relocate grpc-netty-shaded's own `io.grpc.netty.shaded.**` package:
+    // re-shading it would break its bundled-netty + tcnative native binding. Its references to
+    // gRPC *core* are still rewritten (they are not under the excluded prefix), so its providers
+    // continue to extend our relocated base classes.
+    relocate("io.grpc", "$packagePrefix.io.grpc") {
+      exclude("io.grpc.netty.shaded.**")
+    }
+
     // include local classes for the adapter surface.
     from(jar)
 
     // merge and rewrite service files accounting for relocations.
     mergeServiceFiles()
 
-    // only package our own transitive classes; this includes symbols which are needed for transform-injected hooks.
-    dependencyFilter.include {
-      it.moduleGroup == PlanetscaleBuild.PACKAGE_GROUP
-    }
     exclude(
       // don't include bytebuddy classes; we only use them at build time.
       "net/bytebuddy/**",
@@ -236,14 +359,48 @@ tasks {
     }
   }
 
+  shadowJar {
+    configureShadowedJar()
+
+    // Bundle our own transitive classes (transform-injected hooks), PLUS the gRPC and Vitess
+    // client stacks so their `io.grpc` references are rewritten by the relocation above and the
+    // connector ships a single, self-contained, relocated gRPC. grpc-netty (non-shaded) is
+    // excluded — the connector uses grpc-netty-shaded — so we don't drag in a UdsNameResolver
+    // provider that needs the (intentionally omitted) netty unix-common native lib.
+    dependencyFilter.include {
+      it.moduleGroup == PlanetscaleBuild.PACKAGE_GROUP ||
+        it.moduleGroup == "io.vitess" ||
+        (it.moduleGroup == "io.grpc" && it.moduleName != "grpc-netty")
+    }
+  }
+
+  val fullyShadowed by registering(ShadowJar::class) {
+    configureShadowedJar(classifier = "all")
+  }
+
+  named("test", Test::class) {
+    outputs.cacheIf { false }
+    outputs.upToDateWhen { false }
+  }
+
+  named("run", JavaExec::class) {
+    dependsOn(shadowJar)
+
+    classpath = files(
+      configurations.compileClasspath,
+      configurations.runtimeClasspath,
+      shadowJar.get().outputs.files.single(),
+    )
+  }
+
   test {
     useJUnitPlatform()
   }
 
   publish {
-    dependsOn(shadowJar, spdxSbom)
+    dependsOn(shadowJar, fullyShadowed, spdxSbom)
   }
   build {
-    dependsOn(shadowJar, spdxSbom, publish)
+    dependsOn(shadowJar, fullyShadowed, spdxSbom, publish, connectDist)
   }
 }
