@@ -6,7 +6,7 @@ This is a standard Gradle codebase, using Kotlin. Build-time tooling targets any
 
 This repository is equipped with a [GitHub Codespace][0] which is pre-configured for connector development. [Prebuilds][2] are configured for fast Codespace launching.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sgammon/debezium-connector-planetscale-v2?devcontainer_path=.devcontainer%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/planetscale/debezium-connector-planetscale?devcontainer_path=.devcontainer%2Fdevcontainer.json)
 
 ### Local Development
 
