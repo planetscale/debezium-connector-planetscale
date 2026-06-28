@@ -61,13 +61,6 @@ jobs:
     name: "Build"
     needs: [triage]
     uses: ./.github/workflows/job.build.yml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      CONFLUENT_CLOUD_API_KEY: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
-      CONFLUENT_CLOUD_API_SECRET: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
-      CONFLUENT_ENV: ${{ vars.CONFLUENT_ENV }}
-      CONFLUENT_CLUSTER: ${{ vars.CONFLUENT_CLUSTER }}
     permissions:
       contents: read # Needed to checkout and build.
       checks: write # Needed for test result publishing.
@@ -86,7 +79,6 @@ jobs:
     needs: [triage]
     uses: ./.github/workflows/job.confluent-smoke.yml
     secrets:
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       CONFLUENT_CLOUD_EMAIL: ${{ secrets.CONFLUENT_CLOUD_EMAIL }}
       CONFLUENT_CLOUD_PASSWORD: ${{ secrets.CONFLUENT_CLOUD_PASSWORD }}
       KAFKA_API_KEY: ${{ secrets.KAFKA_API_KEY }}
@@ -99,10 +91,9 @@ jobs:
     name: "Review"
     uses: ./.github/workflows/job.review.yml
     needs: [triage]
-    # don't run for drafts or dependabot
+    # don't run for drafts or dependabot; requires ANTHROPIC_API_KEY (checked in job.review.yml)
     if: github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && needs.triage.outputs.sources == 'true'
     secrets:
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     permissions:
       contents: read # Ability to clone the project.

@@ -16,9 +16,6 @@ on:
       ANTHROPIC_API_KEY:
         required: true
         description: "Anthropic API Key"
-      GRADLE_ENCRYPTION_KEY:
-        required: false
-        description: "Gradle Cache Encryption Key"
 
   workflow_dispatch:
     inputs:
@@ -45,6 +42,7 @@ jobs:
     name: "Claude"
     runs-on: ${{ inputs.runner || vars.RUNNER_DEFAULT || 'ubuntu-latest' }}
     if: |
+      secrets.ANTHROPIC_API_KEY != '' &&
       !contains(github.event.pull_request.title, '[skip-review]') &&
       !contains(github.event.pull_request.title, '[WIP]') &&
       contains(github.event.pull_request.labels.*.name, 'ai-review')
@@ -77,7 +75,6 @@ jobs:
           dependency-graph-continue-on-failure: 'true'
           cache-overwrite-existing: true
           cache-read-only: ${{ inputs.cache_read_only || 'true' }}
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: "Review: Claude"
         id: claude-review
         uses: anthropics/claude-code-action@521136812280ae7ef256e06045655b9da02793f0 # beta

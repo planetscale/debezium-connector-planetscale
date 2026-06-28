@@ -26,9 +26,6 @@ jobs:
   build:
     name: "Build"
     uses: ./.github/workflows/job.build.yml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
       contents: read # Needed to checkout and build.
       id-token: write # Needed for build attestations.

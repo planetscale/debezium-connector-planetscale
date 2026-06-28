@@ -60,6 +60,7 @@ concurrency:
 jobs:
   deploy-to-r2:
     name: "Maven"
+    if: secrets.S3_ACCESS_KEY_ID != '' && secrets.S3_SECRET_ACCESS_KEY != ''
     runs-on: ${{ inputs.runner }}
     environment: ${{ inputs.environment }}
     permissions:

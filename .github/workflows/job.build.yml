@@ -60,25 +60,6 @@ on:
       checksums:
         description: "Checksums"
         value: ${{ jobs.build-and-test.outputs.hashes }}
-    secrets:
-      GRADLE_ENCRYPTION_KEY:
-        description: "Gradle Encryption Key"
-        required: false
-      CODECOV_TOKEN:
-        description: "Codecov Token"
-        required: true
-      CONFLUENT_CLOUD_API_KEY:
-        description: "Confluent Cloud API Key"
-        required: false
-      CONFLUENT_CLOUD_API_SECRET:
-        description: "Confluent Cloud API Secret"
-        required: false
-      CONFLUENT_ENV:
-        description: "Confluent Environment ID"
-        required: false
-      CONFLUENT_CLUSTER:
-        description: "Confluent Cluster ID"
-        required: false
 
 permissions:
   contents: read
@@ -148,7 +129,6 @@ jobs:
           dependency-graph-continue-on-failure: 'true'
           cache-overwrite-existing: true
           cache-read-only: ${{ inputs.cache_read_only || 'true' }}
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: "Check: Gradle Wrapper"
         uses: gradle/actions/wrapper-validation@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v4
       - name: "Outputs: Short SHA"
@@ -161,17 +141,6 @@ jobs:
         if: success() || failure() # always run even if the previous step fails
         with:
           report_paths: '**/build/test-results/test/TEST-*.xml'
-      - name: "Report: Tests (Codecov)"
-        if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-      - name: "Report: Coverage (Codecov)"
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
-        with:
-          files: ./*/build/reports/kover/report.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true
       - name: "Artifact: Maven Repository"
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
