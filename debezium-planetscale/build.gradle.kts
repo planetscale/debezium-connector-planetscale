@@ -328,13 +328,25 @@ tasks {
     // namespace makes our ServiceLoader look for `<pkg>.io.grpc.NameResolverProvider`, which the
     // host's service files never reference, so the collision disappears.
     //
-    // We deliberately do NOT relocate grpc-netty-shaded's own `io.grpc.netty.shaded.**` package:
-    // re-shading it would break its bundled-netty + tcnative native binding. Its references to
-    // gRPC *core* are still rewritten (they are not under the excluded prefix), so its providers
-    // continue to extend our relocated base classes.
-    relocate("io.grpc", "$packagePrefix.io.grpc") {
-      exclude("io.grpc.netty.shaded.**")
-    }
+    // Relocate the ENTIRE gRPC tree, INCLUDING grpc-netty-shaded's own `io.grpc.netty.shaded.**`,
+    // plus the Vitess client + its top-level protobuf packages. All of these ALSO ship in the stock
+    // debezium-server dist, so leaving them un-relocated makes our (rewritten) copies collide by
+    // class name with the dist's — the fat jar then cannot be dropped in without removing those jars.
+    // Relocating the whole set makes the fat jar fully self-contained and a true drop-in with nothing
+    // stripped. Relocation only renames classes, so the jar does not grow. io.debezium core is
+    // intentionally NOT relocated — it is the identical version the dist ships (no conflict).
+    //
+    // Trade-off: re-shading grpc-netty-shaded breaks its bundled native binding (the netty
+    // epoll/tcnative .so names no longer match the relocated package), so netty falls back to the
+    // NIO transport + JDK SSL provider. That is functionally fine for the VTGate TLS connection
+    // (validated end-to-end), at a minor performance cost vs. native epoll/OpenSSL.
+    relocate("io.grpc", "$packagePrefix.io.grpc")
+    relocate("io.vitess", "$packagePrefix.io.vitess")
+    listOf(
+      "binlogdata", "binlogservice", "logutil", "mysqlctl", "queryservice", "replicationdata",
+      "tableacl", "tabletmanagerdata", "tabletmanagerservice", "throttlerdata", "throttlerservice",
+      "vschema", "vtadmin", "vtctldata", "vtctlservice", "vttest", "vttime",
+    ).forEach { relocate(it, "$packagePrefix.$it") }
 
     // include local classes for the adapter surface.
     from(jar)
