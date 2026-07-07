@@ -143,8 +143,26 @@ public class io/debezium/connector/vitess/VitessMetadata {
 	protected static fun parseRows (Ljava/util/List;)Ljava/util/List;
 }
 
+public class io/debezium/connector/vitess/VitessType {
+	public fun <init> (Ljava/lang/String;I)V
+	public fun <init> (Ljava/lang/String;ILjava/lang/Integer;)V
+	public fun <init> (Ljava/lang/String;ILjava/util/List;)V
+	public fun <init> (Ljava/lang/String;ILjava/util/List;Ljava/util/Optional;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getEnumValues ()Ljava/util/List;
+	public fun getJdbcId ()I
+	public fun getName ()Ljava/lang/String;
+	public fun getPrecision ()Ljava/util/Optional;
+	public fun hashCode ()I
+	public fun isEnum ()Z
+	public static fun resolve (Lio/vitess/proto/Query$Field;)Lio/debezium/connector/vitess/VitessType;
+	public static fun resolve (Lio/vitess/proto/Query$Field;Z)Lio/debezium/connector/vitess/VitessType;
+	public fun toString ()Ljava/lang/String;
+}
+
 public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdbc/JdbcValueConverters {
 	public fun <init> (Lio/debezium/jdbc/JdbcValueConverters$DecimalMode;Lio/debezium/jdbc/TemporalPrecisionMode;Ljava/time/ZoneOffset;Lio/debezium/config/CommonConnectorConfig$BinaryHandlingMode;ZLio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;ZLjava/time/temporal/TemporalAdjuster;Lio/debezium/config/CommonConnectorConfig$EventConvertingFailureHandlingMode;Lio/debezium/service/spi/ServiceRegistry;)V
+	protected fun convertBits (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;)Lio/debezium/relational/ValueConverter;
 	protected fun convertGeometry (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetToString (Ljava/util/List;Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetValue (Lio/debezium/relational/Column;JLjava/util/List;)Ljava/lang/String;
@@ -159,6 +177,11 @@ public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdb
 	public static fun stringToDuration (Ljava/lang/String;)Ljava/time/Duration;
 	public static fun stringToLocalDate (Ljava/lang/String;)Ljava/time/LocalDate;
 	public static fun stringToTimestamp (Ljava/lang/String;)Ljava/sql/Timestamp;
+}
+
+public class io/debezium/connector/vitess/connection/ReplicationMessageColumnValueResolver {
+	public fun <init> ()V
+	public static fun resolveValue (Lio/debezium/connector/vitess/VitessType;Lio/debezium/connector/vitess/connection/ReplicationMessage$ColumnValue;ZLio/debezium/jdbc/TemporalPrecisionMode;)Ljava/lang/Object;
 }
 
 public class io/debezium/connector/vitess/connection/VitessColumnValue : io/debezium/connector/vitess/connection/ReplicationMessage$ColumnValue {
