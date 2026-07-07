@@ -198,6 +198,23 @@ public class VitessValueConverter extends JdbcValueConverters {
     return matches(typeName, Query.Type.TIMESTAMP.name());
   }
 
+  // Ported from upstream debezium/dbz#2191 (PR #293); this fork copy shades out upstream's
+  // VitessValueConverter, so the fix must be carried here.
+  @Override
+  protected ValueConverter convertBits(Column column, Field fieldDefn) {
+    // VStream sends raw bytes; convert BIT(1) to boolean as JdbcValueConverters expects,
+    // return BIT(N) as-is for Kafka Connect BYTES schema
+    return (data) -> {
+      if (data instanceof byte[] bytes) {
+        if (column.length() <= 1) {
+          return bytes.length > 0 && bytes[0] != 0;
+        }
+        return bytes;
+      }
+      return super.convertBits(column, fieldDefn).convert(data);
+    };
+  }
+
   // Implements additional type support for the Planetscale adapter.
   private @Nullable ValueConverter superOrShimmedConverter(Column inputColumn, Field fieldDefn) {
     ValueConverter superConverter = super.converter(inputColumn, fieldDefn);

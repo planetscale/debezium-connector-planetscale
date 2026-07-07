@@ -186,6 +186,10 @@ val debeziumClasses by tasks.registering(Copy::class) {
   exclude("**/VitessValueConverter*") // fix: custom type support (geo)
   exclude("**/VitessDatabaseSchema*") // fix: custom type support (geo)
   exclude("**/VitessConnectorConfig*") // fix: overrides for cell hint, etc
+  // fix: BIT columns silently dropped (upstream debezium/dbz#2191, merged for 3.7); drop these
+  // two excludes + fork copies once we build against a release that contains the fix.
+  exclude("**/VitessType*") // fix: BIT -> Types.BIT mapping with column width
+  exclude("**/connection/ReplicationMessageColumnValueResolver*") // fix: Types.BIT -> asBytes()
   exclude("**/VitessMetadata*") // fix: backtick-quote keyspace identifiers (e.g. hyphenated names)
   finalizedBy(debeziumClassesPatched)
 }
