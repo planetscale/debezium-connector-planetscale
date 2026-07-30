@@ -13,6 +13,8 @@ import net.bytebuddy.build.gradle.Adjustment
 import net.bytebuddy.build.gradle.Adjustment.ErrorHandler
 import net.bytebuddy.build.gradle.ByteBuddyTask
 import net.bytebuddy.build.gradle.Discovery
+import org.apache.tools.ant.filters.ReplaceTokens
+import java.time.LocalDate
 
 plugins {
   application
@@ -33,6 +35,11 @@ plugins {
 val packagePrefix = PlanetscaleBuild.PACKAGE_GROUP
 val vitessPackage = "io.debezium.connector.vitess"
 val mysqlPackage = "io.debezium.connector.mysql"
+
+// Values injected into the Connect manifest.json at package time so they never go stale:
+//   version      -> the full project version (e.g. 3.2.1.Final-r2), matching the artifact
+//   release_date -> the build date (ISO yyyy-MM-dd), overridable with -PreleaseDate=YYYY-MM-DD
+val manifestReleaseDate: String = providers.gradleProperty("releaseDate").orNull ?: LocalDate.now().toString()
 
 val enableSigning = findProperty("planetscale.release") == "true"
 val enableSigstore = findProperty("planetscale.sigstore") == "true"
@@ -243,6 +250,11 @@ val assembleConnectLib by tasks.registering(Copy::class) {
 val assembleConnectLayout by tasks.registering(Copy::class) {
   from(layout.projectDirectory.dir("src/main/config")) {
     include("manifest.json")
+    // inject @version@ / @release_date@ so the manifest always matches the built artifact
+    filter(
+      mapOf("tokens" to mapOf("version" to project.version.toString(), "release_date" to manifestReleaseDate)),
+      ReplaceTokens::class.java,
+    )
   }
   into(connectOut.get())
 
