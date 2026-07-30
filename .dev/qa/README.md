@@ -50,9 +50,11 @@ Notes:
 
 In `debezium-planetscale/build.gradle.kts`:
 - **Drop `debezium-embedded`** (unused standalone engine) → kills Error 2.
-- **Relocate `io.grpc` → `com.planetscale.labs.io.grpc`** (excluding `io.grpc.netty.shaded.**` so
-  tcnative stays intact) and bundle the gRPC + Vitess stacks into the shaded jar instead of shipping
-  them loose → kills Error 1. Drop the redundant non-shaded `grpc-netty`.
+- **Relocate the entire `io.grpc` tree** (including `io.grpc.netty.shaded.**`) plus `io.vitess` and
+  Vitess's top-level protobuf packages into `com.planetscale.labs.*`, and bundle those stacks into
+  the shaded jar instead of shipping them loose → kills Error 1. Drop the redundant non-shaded
+  `grpc-netty`. Trade-off: re-shading `grpc-netty-shaded` breaks its bundled native binding, so
+  netty falls back to NIO + JDK SSL (fine for VTGate TLS; minor cost vs native epoll/OpenSSL).
 
 After the fix, the GREEN run shows the task talking to PlanetScale via the relocated client:
 `com.planetscale.labs.io.grpc.StatusRuntimeException: UNAUTHENTICATED` (expected, placeholder creds).
