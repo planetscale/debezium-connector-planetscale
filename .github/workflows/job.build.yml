@@ -138,7 +138,7 @@ jobs:
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
         with:
           java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
-          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm-community' }}
       - name: "Setup: Elide"
         uses: elide-dev/setup-elide@d2f742321bf672300c0935839b6f5c6e562a965b # v4.1.0
       - name: "Setup: Gradle"

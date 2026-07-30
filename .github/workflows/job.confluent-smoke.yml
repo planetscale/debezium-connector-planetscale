@@ -104,7 +104,7 @@ jobs:
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5.1.0
         with:
           java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
-          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm' }}
+          distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'graalvm-community' }}
 
       - name: "Setup: Gradle"
         if: steps.gate.outputs.run == 'true'
