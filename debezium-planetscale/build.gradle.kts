@@ -241,6 +241,11 @@ val assembleConnectLib by tasks.registering(Copy::class) {
     // re-introduce the host-runtime classloader collision that breaks gRPC name resolution.
     exclude("grpc-*.jar")
     exclude("vitess-client-*.jar", "vitess-grpc-client-*.jar")
+    // The transforms module's classes are already merged (and relocated) into the shaded
+    // adapter jar; the loose jar duplicates com.planetscale.debezium.channel.* compiled
+    // against un-relocated io.grpc, which cannot resolve here and makes class loading
+    // order-dependent.
+    exclude("transforms-*.jar")
   }
   from(tasks.shadowJar)
   into(connectOut.get().dir("lib"))
