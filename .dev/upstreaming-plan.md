@@ -34,17 +34,19 @@ shortens how long we carry overrides.
 Verified 2026-07-09 by diffing fork `main` against upstream `main` + `v3.6.0.Final`:
 none of these exist upstream, and no open upstream issue/PR covers them.
 
-| # | PR | Size | What / why upstream wants it |
-|---|----|------|------------------------------|
-| 1 | **Config bugfixes**: `validateInheritEpoch` always returns 0 (validation can never fail) + NPEs when `transaction.metadata.factory` unset; `vitess.grpc.headers` uses `split(":")` and silently drops header values containing a colon (fix: `split(":", 2)`) | S | Plain bugs; the header fix also makes auth headers fully usable via stock config |
-| 2 | **Connection bugfixes**: gRPC channel leak (`compareAndSet(null, ch)` retains only the first channel across restarts; we do `getAndSet` + `shutdownNow()`), NPE-unsafe `close()`, and `Vgtid` string comparison via `==` instead of `.equals` | S | Resource leak + latent correctness bugs, all documented in [buglist.md](buglist.md) |
-| 3 | **`vitess.cells`**: set `VStreamFlags.cells` so vtgate serves the stream from tablets in the named cell(s) | S | Locality control for any multi-cell Vitess user. Adaptation: upstream version must be optional + registered in `CONFIG_DEFINITION` (our copy marks it required and never registers it) |
-| 4 | **Zero-date fix**: upstream's `^\d{4}-00-00` regex only catches zero-month; a zero-day date (`2024-01-00`) throws from `Timestamp.valueOf()` and kills the task | S | Crash fix |
-| 5 | **GEOMETRY support**: map VStream GEOMETRY to `io.debezium.data.geometry.Geometry` instead of dropping the column | M | Parity with the MySQL connector. Needs a design pass first: we currently emit raw bytes with `srid=null`; MySQL's wire format is 4-byte-SRID+WKB and the MySQL connector splits it — upstream review will likely require the same. Validate before opening |
-| 6 | **Unknown datatypes as bytes**: with `include.unknown.datatypes=true`, upstream declares the schema `bytes()` but delivers a `String` → serialization mismatch at runtime | S | Framed as the schema/value-mismatch bugfix it is (behavior change, so after the goodwill from 1–5) |
-| 7 | **Generic gRPC TLS / channel-credentials hook** *(strategic)* | M | Upstream hardcodes `usePlaintext()` in the private `newChannel()` — the **only** thing that structurally forces us to copy a class. A generic `vitess.grpc.tls.*` option or pluggable channel-credentials hook is not PlanetScale-specific (any TLS-fronted vtgate needs it). Plan: file the upstream design issue first to socialize it before writing code |
+| # | PR | Size | What / why upstream wants it | Upstream refs |
+|---|----|------|------------------------------|---------------|
+| 1 | **Config bugfixes**: `validateInheritEpoch` always returns 0 (validation can never fail) + null-unsafe factory comparison; `vitess.grpc.headers` uses `split(":")` and silently drops header values containing a colon (fix: `split(":", 2)`) | S | Plain bugs; the header fix also makes auth headers fully usable via stock config | [dbz#2479](https://github.com/debezium/dbz/issues/2479), [dbz#2480](https://github.com/debezium/dbz/issues/2480) → [PR #295](https://github.com/debezium/debezium-connector-vitess/pull/295) — **merged 2026-09-01** |
+| 2 | **Connection bugfixes**: gRPC channel leak (`compareAndSet(null, ch)` retains only the first channel across restarts; we do `getAndSet` + `shutdownNow()`), NPE-unsafe `close()`, and `Vgtid` string comparison via `==` instead of `.equals` | S | Resource leak + latent correctness bugs, all documented in [buglist.md](buglist.md) | [dbz#2545](https://github.com/debezium/dbz/issues/2545), [dbz#2546](https://github.com/debezium/dbz/issues/2546) → [PR #298](https://github.com/debezium/debezium-connector-vitess/pull/298) — open |
+| 3 | **`vitess.cells`**: set `VStreamFlags.cells` so vtgate serves the stream from tablets in the named cell(s) | S | Locality control for any multi-cell Vitess user. Adaptation: upstream version must be optional + registered in `CONFIG_DEFINITION` (our copy marks it required and never registers it) | — |
+| 4 | **Zero-date fix**: upstream's `^\d{4}-00-00` regex only catches zero-month; a zero-day date (`2024-01-00`) throws from `Timestamp.valueOf()` and kills the task | S | Crash fix | — |
+| 5 | **GEOMETRY support**: map VStream GEOMETRY to `io.debezium.data.geometry.Geometry` instead of dropping the column | M | Parity with the MySQL connector. Needs a design pass first: we currently emit raw bytes with `srid=null`; MySQL's wire format is 4-byte-SRID+WKB and the MySQL connector splits it — upstream review will likely require the same. Validate before opening | — |
+| 6 | **Unknown datatypes as bytes**: with `include.unknown.datatypes=true`, upstream declares the schema `bytes()` but delivers a `String` → serialization mismatch at runtime | S | Framed as the schema/value-mismatch bugfix it is (behavior change, so after the goodwill from 1–5) | — |
+| 7 | **Generic gRPC TLS / channel-credentials hook** *(strategic)* | M | Upstream hardcodes `usePlaintext()` in the private `newChannel()` — the **only** thing that structurally forces us to copy a class. A generic `vitess.grpc.tls.*` option or pluggable channel-credentials hook is not PlanetScale-specific (any TLS-fronted vtgate needs it). Plan: file the upstream design issue first to socialize it before writing code | — |
 
-All PRs go from the `planetscale` fork. Nothing PlanetScale-branded goes upstream —
+Upstream PRs go from the `mcrauwel` fork (the `planetscale/debezium-connector-vitess`
+copy is a mirror, not a GitHub fork, so it cannot open cross-repo PRs). Nothing
+PlanetScale-branded goes upstream —
 specifically the mTLS and username/password auth implementations stay fork-only.
 
 ## What stays fork-only (permanent patch set)
@@ -79,8 +81,8 @@ per-version override manifest so each line declares exactly what its base lacks.
 
 ## Status
 
-- [ ] PR 1 — config bugfixes (`validateInheritEpoch`, `grpc.headers` split)
-- [ ] PR 2 — connection bugfixes (channel leak, `close()` NPE, `Vgtid` equals)
+- [x] PR 1 — config bugfixes (`validateInheritEpoch`, `grpc.headers` split) — merged 2026-09-01
+- [ ] PR 2 — connection bugfixes (channel leak, `close()` NPE, `Vgtid` equals) — PR open
 - [ ] PR 3 — `vitess.cells`
 - [ ] PR 4 — zero-date fix
 - [ ] PR 5 — GEOMETRY support (design pass first)
