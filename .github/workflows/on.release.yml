@@ -3,7 +3,12 @@ name: "Release"
 on:
   push:
     tags: ['v*']
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and publish (e.g. v3.2.1.Final-r2); created at the dispatched ref if it does not exist"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,9 +25,10 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
     permissions:
-      id-token: write
-      attestations: write
-      checks: write
+      contents: read # Needed to checkout and build.
+      id-token: write # Needed for build attestations.
+      attestations: write # Needed for build attestations.
+      checks: write # Needed for test result publishing.
     with:
       release: true
       provenance: true
@@ -37,5 +43,6 @@ jobs:
       id-token: write
       attestations: write
     with:
-      tag: ${{ github.ref_name }}
+      # Tag push: the pushed tag. Manual dispatch: the tag given as input (never the branch name).
+      tag: ${{ inputs.tag || github.ref_name }}
       sha: ${{ github.sha }}
