@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - '3.*' # release lines track upstream minors (3.2, 3.3, ...)
   workflow_dispatch: {}
 
 permissions:
