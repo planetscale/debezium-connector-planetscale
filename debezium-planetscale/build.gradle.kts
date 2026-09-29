@@ -135,6 +135,9 @@ dependencies {
   testImplementation(libs.testcontainers.junit.jupiter)
   testImplementation(libs.testcontainers.core)
   testImplementation(libs.kotlin.test.junit5)
+  // 3.5.x+ no longer pulls the binlog connector onto the test runtime classpath transitively via the
+  // vitess connector; VitessValueConverter references BinlogValueConverters at class-load time.
+  testImplementation(debezium.connectors.binlog)
   testRuntimeOnly(libs.mysql.connector.j)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
