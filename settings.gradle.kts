@@ -52,7 +52,3 @@ includeBuild("debezium-planetscale")
 enableFeaturePreview("STABLE_CONFIGURATION_CACHE")
 enableFeaturePreview("GROOVY_COMPILATION_AVOIDANCE")
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
-
-// Use `latest` for the latest version, or any other tag, branch, or commit SHA on this project.
-val elidePluginVersion: String by settings
-apply(from = "https://gradle.elide.dev/$elidePluginVersion/elide.gradle.kts")
