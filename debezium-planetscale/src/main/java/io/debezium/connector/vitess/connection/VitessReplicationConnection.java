@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
+import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.vitess.Vgtid;
 import io.debezium.connector.vitess.VitessConnector;
 import io.debezium.connector.vitess.VitessConnectorConfig;
@@ -292,12 +293,18 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
     Vtgate.VStreamFlags.Builder vStreamFlagsBuilder = Vtgate.VStreamFlags.newBuilder()
             .setStopOnReshard(config.getStopOnReshard())
+            .setExcludeKeyspaceFromTableName(config.getExcludeKeyspaceFromTableName())
             .setHeartbeatInterval(getHeartbeatSeconds())
             .setStreamKeyspaceHeartbeats(config.getStreamKeyspaceHeartbeats());
 
     String cells = config.getCells();
     if (!Strings.isNullOrEmpty(cells)) {
       vStreamFlagsBuilder.setCells(cells);
+    }
+    if (!Strings.isNullOrEmpty(config.getConfig().getString(CommonConnectorConfig.SNAPSHOT_MODE_TABLES))) {
+      final List<String> allTables = new VitessMetadata(config).getTables();
+      List<String> tablesToCopy = VitessConnector.getTablesToCopyByPrefix(config, allTables);
+      vStreamFlagsBuilder.addAllTablesToCopy(tablesToCopy);
     }
     Vtgate.VStreamFlags vStreamFlags = vStreamFlagsBuilder.build();
 

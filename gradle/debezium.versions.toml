@@ -6,7 +6,7 @@
 #
 
 [versions]
-debezium = "3.2.1.Final"
+debezium = "3.4.3.Final"
 
 [libraries]
 core = { module = "io.debezium:debezium-core", version.ref = "debezium" }

@@ -12,6 +12,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.relational.CustomConverterRegistry;
 import io.debezium.relational.RelationalDatabaseSchema;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -26,10 +27,15 @@ import io.debezium.spi.topic.TopicNamingStrategy;
 public class VitessDatabaseSchema extends RelationalDatabaseSchema {
   private static final Logger LOGGER = LoggerFactory.getLogger(VitessDatabaseSchema.class);
 
+  private final String keyspace;
+  private final boolean excludeKeyspaceFromTableName;
+
   public VitessDatabaseSchema(
           VitessConnectorConfig config,
           SchemaNameAdjuster schemaNameAdjuster,
-          TopicNamingStrategy<TableId> topicNamingStrategy) {
+                TopicNamingStrategy<TableId> topicNamingStrategy,
+          CustomConverterRegistry customConverterRegistry,
+          VitessTaskContext taskContext) {
     super(
             config,
             topicNamingStrategy,
@@ -48,13 +54,15 @@ public class VitessDatabaseSchema extends RelationalDatabaseSchema {
                             config.getEventConvertingFailureHandlingMode(),
                             config.getServiceRegistry()),
                     schemaNameAdjuster,
-                    config.customConverterRegistry(),
+            customConverterRegistry,
                     config.getSourceInfoStructMaker().schema(),
                     config.getTransactionMetadataFactory().getTransactionStructMaker().getTransactionBlockSchema(),
                     config.getFieldNamer(),
                     false),
             false,
-            config.getKeyMapper());
+        config.getKeyMapper(), taskContext);
+    this.keyspace = config.getKeyspace();
+    this.excludeKeyspaceFromTableName = config.getExcludeKeyspaceFromTableName();
   }
 
   /** Applies schema changes for the specified table. */
@@ -66,6 +74,14 @@ public class VitessDatabaseSchema extends RelationalDatabaseSchema {
     }
 
     refresh(table);
+  }
+
+  public String getKeyspace() {
+    return this.keyspace;
+  }
+
+  public boolean getExcludeKeyspaceFromTableName() {
+    return this.excludeKeyspaceFromTableName;
   }
 
   private boolean isFilteredOut(TableId id) {
