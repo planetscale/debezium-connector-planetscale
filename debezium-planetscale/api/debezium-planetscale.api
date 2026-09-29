@@ -60,7 +60,6 @@ public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/re
 	public static final field VTGATE_USER Lio/debezium/config/Field;
 	public fun <init> (Lio/debezium/config/Configuration;)V
 	public static fun configDef ()Lorg/apache/kafka/common/config/ConfigDef;
-	public fun createHeartbeat (Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/heartbeat/HeartbeatConnectionProvider;Lio/debezium/heartbeat/HeartbeatErrorHandler;)Lio/debezium/heartbeat/Heartbeat;
 	public fun excludeEmptyShards ()Z
 	public fun getBigIntUnsgnedHandlingMode ()Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
 	public fun getCells ()Ljava/lang/String;
@@ -122,7 +121,7 @@ public final class io/debezium/connector/vitess/VitessConnectorConfig$SnapshotMo
 }
 
 public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/relational/RelationalDatabaseSchema {
-	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;)V
+	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/relational/CustomConverterRegistry;)V
 	public fun applySchemaChangesForTable (Lio/debezium/relational/Table;)V
 	public static fun buildTableId (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/debezium/relational/TableId;
 	public static fun parse (Ljava/lang/String;)Lio/debezium/relational/TableId;
