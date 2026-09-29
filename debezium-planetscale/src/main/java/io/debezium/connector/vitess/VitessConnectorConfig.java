@@ -5,8 +5,6 @@
  */
 package io.debezium.connector.vitess;
 
-import static io.debezium.config.ConfigurationNames.DATABASE_CONFIG_PREFIX;
-
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -35,15 +33,10 @@ import io.debezium.connector.SourceInfoStructMaker;
 import io.debezium.connector.vitess.connection.VitessTabletType;
 import io.debezium.connector.vitess.pipeline.txmetadata.ShardEpochMap;
 import io.debezium.connector.vitess.pipeline.txmetadata.VitessOrderedTransactionMetadataFactory;
-import io.debezium.heartbeat.Heartbeat;
-import io.debezium.heartbeat.HeartbeatConnectionProvider;
-import io.debezium.heartbeat.HeartbeatErrorHandler;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.ColumnFilterMode;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
-import io.debezium.schema.SchemaNameAdjuster;
-import io.debezium.spi.topic.TopicNamingStrategy;
 import io.grpc.LoadBalancerProvider;
 import io.grpc.LoadBalancerRegistry;
 import io.grpc.internal.GrpcUtil;
@@ -251,6 +244,16 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
           .withImportance(ConfigDef.Importance.LOW)
           .withDescription("Streams the events for the vitess heartbeat tables. Heartbeats must also be enabled on the Vitess tablets. " +
                   "If a Debezium table include list is configured, the heartbeat table should be specified there, the format is `<keyspace>.heartbeat)`");
+
+  public static final Field EXCLUDE_KEYSPACE_FROM_TABLE_NAME = Field.create(VITESS_CONFIG_GROUP_PREFIX + "exclude.keyspace.from.table.name")
+      .withDisplayName("exclude.keyspace.from.table.name")
+      .withType(Type.BOOLEAN)
+      .withWidth(Width.SHORT)
+      .withDefault(false)
+      .withImportance(ConfigDef.Importance.LOW)
+      .withDescription("Excludes the keyspace from the table name which boosts the VTGate performance significantly" +
+          "(avoids unnecessarily copying each event before sending to Debezium)." +
+          "Only safe to do for Debezium clients streaming from one keyspace (currently the only supported mode of operation).");
 
   public static final Field SHARD = Field.create(VITESS_CONFIG_GROUP_PREFIX + "shard")
           .withDisplayName("Shard")
@@ -548,6 +551,7 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
                   OFFSET_STORAGE_TASK_KEY_GEN,
                   PREV_NUM_TASKS,
                   STREAM_KEYSPACE_HEARTBEATS,
+          EXCLUDE_KEYSPACE_FROM_TABLE_NAME,
                   EXCLUDE_EMPTY_SHARDS)
           .events(
                   INCLUDE_UNKNOWN_DATATYPES,
@@ -660,6 +664,10 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
 
   public boolean getStreamKeyspaceHeartbeats() {
     return getConfig().getBoolean(STREAM_KEYSPACE_HEARTBEATS);
+  }
+
+  public boolean getExcludeKeyspaceFromTableName() {
+    return getConfig().getBoolean(EXCLUDE_KEYSPACE_FROM_TABLE_NAME);
   }
 
   private static int validateVgtids(Configuration config, Field field, ValidationOutput problems) {
@@ -826,15 +834,6 @@ public class VitessConnectorConfig extends RelationalDatabaseConnectorConfig {
   @Override
   public Optional<EnumeratedValue> getSnapshotLockingMode() {
     return Optional.empty();
-  }
-
-  @Override
-  public Heartbeat createHeartbeat(TopicNamingStrategy topicNamingStrategy, SchemaNameAdjuster schemaNameAdjuster,
-                                   HeartbeatConnectionProvider connectionProvider, HeartbeatErrorHandler errorHandler) {
-    if (getHeartbeatInterval().isZero()) {
-      return Heartbeat.DEFAULT_NOOP_HEARTBEAT;
-    }
-    return new VitessHeartbeatImpl(getHeartbeatInterval(), topicNamingStrategy.heartbeatTopic(), getLogicalName(), schemaNameAdjuster);
   }
 
   public BigIntUnsignedHandlingMode getBigIntUnsgnedHandlingMode() {

@@ -25,6 +25,7 @@ public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/re
 	protected static final field CONFIG_DEFINITION Lio/debezium/config/ConfigDefinition;
 	public static final field CSV_DELIMITER Ljava/lang/String;
 	public static final field EXCLUDE_EMPTY_SHARDS Lio/debezium/config/Field;
+	public static final field EXCLUDE_KEYSPACE_FROM_TABLE_NAME Lio/debezium/config/Field;
 	public static final field GRPC_DEFAULT_LOAD_BALANCING_POLICY Lio/debezium/config/Field;
 	public static final field GRPC_HEADERS Lio/debezium/config/Field;
 	public static final field GRPC_MAX_INBOUND_MESSAGE_SIZE Lio/debezium/config/Field;
@@ -60,12 +61,12 @@ public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/re
 	public static final field VTGATE_USER Lio/debezium/config/Field;
 	public fun <init> (Lio/debezium/config/Configuration;)V
 	public static fun configDef ()Lorg/apache/kafka/common/config/ConfigDef;
-	public fun createHeartbeat (Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/heartbeat/HeartbeatConnectionProvider;Lio/debezium/heartbeat/HeartbeatErrorHandler;)Lio/debezium/heartbeat/Heartbeat;
 	public fun excludeEmptyShards ()Z
 	public fun getBigIntUnsgnedHandlingMode ()Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
 	public fun getCells ()Ljava/lang/String;
 	public fun getConnectorName ()Ljava/lang/String;
 	public fun getContextName ()Ljava/lang/String;
+	public fun getExcludeKeyspaceFromTableName ()Z
 	public fun getGrpcDefaultLoadBalancingPolicy ()Ljava/lang/String;
 	public fun getGrpcHeaders ()Ljava/util/Map;
 	public fun getGrpcMaxInboundMessageSize ()I
@@ -122,9 +123,11 @@ public final class io/debezium/connector/vitess/VitessConnectorConfig$SnapshotMo
 }
 
 public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/relational/RelationalDatabaseSchema {
-	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;)V
+	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/relational/CustomConverterRegistry;Lio/debezium/connector/vitess/VitessTaskContext;)V
 	public fun applySchemaChangesForTable (Lio/debezium/relational/Table;)V
 	public static fun buildTableId (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/debezium/relational/TableId;
+	public fun getExcludeKeyspaceFromTableName ()Z
+	public fun getKeyspace ()Ljava/lang/String;
 	public static fun parse (Ljava/lang/String;)Lio/debezium/relational/TableId;
 	public fun refresh (Lio/debezium/relational/Table;)V
 	public fun refreshSchema (Lio/debezium/relational/TableId;)V
