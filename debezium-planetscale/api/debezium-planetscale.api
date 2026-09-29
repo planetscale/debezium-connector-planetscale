@@ -23,8 +23,11 @@ public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/re
 	public static field ALL_FIELDS Lio/debezium/config/Field$Set;
 	public static final field BIGINT_UNSIGNED_HANDLING_MODE Lio/debezium/config/Field;
 	protected static final field CONFIG_DEFINITION Lio/debezium/config/ConfigDefinition;
+	public static final field CONNECTOR_GENERATION Lio/debezium/config/Field;
 	public static final field CSV_DELIMITER Ljava/lang/String;
+	public static final field DEFAULT_CONNECTOR_GENERATION J
 	public static final field EXCLUDE_EMPTY_SHARDS Lio/debezium/config/Field;
+	public static final field EXCLUDE_KEYSPACE_FROM_TABLE_NAME Lio/debezium/config/Field;
 	public static final field GRPC_DEFAULT_LOAD_BALANCING_POLICY Lio/debezium/config/Field;
 	public static final field GRPC_HEADERS Lio/debezium/config/Field;
 	public static final field GRPC_MAX_INBOUND_MESSAGE_SIZE Lio/debezium/config/Field;
@@ -60,12 +63,13 @@ public class io/debezium/connector/vitess/VitessConnectorConfig : io/debezium/re
 	public static final field VTGATE_USER Lio/debezium/config/Field;
 	public fun <init> (Lio/debezium/config/Configuration;)V
 	public static fun configDef ()Lorg/apache/kafka/common/config/ConfigDef;
-	public fun createHeartbeat (Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/heartbeat/HeartbeatConnectionProvider;Lio/debezium/heartbeat/HeartbeatErrorHandler;)Lio/debezium/heartbeat/Heartbeat;
 	public fun excludeEmptyShards ()Z
 	public fun getBigIntUnsgnedHandlingMode ()Lio/debezium/connector/vitess/VitessConnectorConfig$BigIntUnsignedHandlingMode;
 	public fun getCells ()Ljava/lang/String;
+	public fun getConnectorGeneration ()J
 	public fun getConnectorName ()Ljava/lang/String;
 	public fun getContextName ()Ljava/lang/String;
+	public fun getExcludeKeyspaceFromTableName ()Z
 	public fun getGrpcDefaultLoadBalancingPolicy ()Ljava/lang/String;
 	public fun getGrpcHeaders ()Ljava/util/Map;
 	public fun getGrpcMaxInboundMessageSize ()I
@@ -122,42 +126,14 @@ public final class io/debezium/connector/vitess/VitessConnectorConfig$SnapshotMo
 }
 
 public class io/debezium/connector/vitess/VitessDatabaseSchema : io/debezium/relational/RelationalDatabaseSchema {
-	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;)V
+	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;Lio/debezium/schema/SchemaNameAdjuster;Lio/debezium/spi/topic/TopicNamingStrategy;Lio/debezium/relational/CustomConverterRegistry;Lio/debezium/connector/vitess/VitessTaskContext;)V
 	public fun applySchemaChangesForTable (Lio/debezium/relational/Table;)V
 	public static fun buildTableId (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/debezium/relational/TableId;
+	public fun getExcludeKeyspaceFromTableName ()Z
+	public fun getKeyspace ()Ljava/lang/String;
 	public static fun parse (Ljava/lang/String;)Lio/debezium/relational/TableId;
 	public fun refresh (Lio/debezium/relational/Table;)V
 	public fun refreshSchema (Lio/debezium/relational/TableId;)V
-}
-
-public class io/debezium/connector/vitess/VitessMetadata {
-	public fun <init> (Lio/debezium/connector/vitess/VitessConnectorConfig;)V
-	protected fun executeQuery (Ljava/lang/String;Ljava/lang/String;)Lio/vitess/proto/Vtgate$ExecuteResponse;
-	protected static fun flattenAndConcat (Ljava/util/List;)Ljava/util/List;
-	protected static fun formatQuery (Ljava/lang/String;[Ljava/lang/String;)Ljava/lang/String;
-	public fun getConnectionString ()Ljava/lang/String;
-	public fun getDatabases ()Ljava/util/List;
-	protected static fun getNonEmptyShards (Ljava/util/List;Ljava/lang/String;)Ljava/util/List;
-	public fun getShards ()Ljava/util/List;
-	public fun getTables ()Ljava/util/List;
-	protected static fun parseRows (Ljava/util/List;)Ljava/util/List;
-}
-
-public class io/debezium/connector/vitess/VitessType {
-	public fun <init> (Ljava/lang/String;I)V
-	public fun <init> (Ljava/lang/String;ILjava/lang/Integer;)V
-	public fun <init> (Ljava/lang/String;ILjava/util/List;)V
-	public fun <init> (Ljava/lang/String;ILjava/util/List;Ljava/util/Optional;)V
-	public fun equals (Ljava/lang/Object;)Z
-	public fun getEnumValues ()Ljava/util/List;
-	public fun getJdbcId ()I
-	public fun getName ()Ljava/lang/String;
-	public fun getPrecision ()Ljava/util/Optional;
-	public fun hashCode ()I
-	public fun isEnum ()Z
-	public static fun resolve (Lio/vitess/proto/Query$Field;)Lio/debezium/connector/vitess/VitessType;
-	public static fun resolve (Lio/vitess/proto/Query$Field;Z)Lio/debezium/connector/vitess/VitessType;
-	public fun toString ()Ljava/lang/String;
 }
 
 public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdbc/JdbcValueConverters {
@@ -167,6 +143,7 @@ public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdb
 	protected fun convertSetToString (Ljava/util/List;Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertSetValue (Lio/debezium/relational/Column;JLjava/util/List;)Ljava/lang/String;
 	protected fun convertTimestampToConnectDate (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
+	protected fun convertTimestampWithZone (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected fun convertUnsignedBigint (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;Ljava/lang/Object;)Ljava/lang/Object;
 	protected static fun convertUnsignedBigint (Ljava/math/BigDecimal;)Ljava/math/BigDecimal;
 	public fun converter (Lio/debezium/relational/Column;Lorg/apache/kafka/connect/data/Field;)Lio/debezium/relational/ValueConverter;
@@ -177,11 +154,7 @@ public class io/debezium/connector/vitess/VitessValueConverter : io/debezium/jdb
 	public static fun stringToDuration (Ljava/lang/String;)Ljava/time/Duration;
 	public static fun stringToLocalDate (Ljava/lang/String;)Ljava/time/LocalDate;
 	public static fun stringToTimestamp (Ljava/lang/String;)Ljava/sql/Timestamp;
-}
-
-public class io/debezium/connector/vitess/connection/ReplicationMessageColumnValueResolver {
-	public fun <init> ()V
-	public static fun resolveValue (Lio/debezium/connector/vitess/VitessType;Lio/debezium/connector/vitess/connection/ReplicationMessage$ColumnValue;ZLio/debezium/jdbc/TemporalPrecisionMode;)Ljava/lang/Object;
+	public static fun stringToZonedDateTime (Ljava/lang/String;)Ljava/time/ZonedDateTime;
 }
 
 public class io/debezium/connector/vitess/connection/VitessColumnValue : io/debezium/connector/vitess/connection/ReplicationMessage$ColumnValue {

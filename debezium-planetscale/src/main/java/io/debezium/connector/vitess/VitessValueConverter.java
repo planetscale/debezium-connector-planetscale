@@ -15,6 +15,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjuster;
 import java.util.Date;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,50 +53,57 @@ import javax.annotation.Nullable;
 public class VitessValueConverter extends JdbcValueConverters {
   private static final boolean ENABLE_BINLOG_SHIM = false;
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(VitessValueConverter.class);
-  private static final Logger INVALID_VALUE_LOGGER = LoggerFactory.getLogger(VitessValueConverter.class.getName() + ".invalid_value");
-  private static final BigDecimal BIGINT_MAX_VALUE = new BigDecimal("18446744073709551615");
-  private static final BigDecimal BIGINT_CORRECTION = BIGINT_MAX_VALUE.add(BigDecimal.ONE);
+    private static final Logger LOGGER = LoggerFactory.getLogger(VitessValueConverter.class);
+    private static final Logger INVALID_VALUE_LOGGER = LoggerFactory.getLogger(VitessValueConverter.class.getName() + ".invalid_value");
+    private static final BigDecimal BIGINT_MAX_VALUE = new BigDecimal("18446744073709551615");
+    private static final BigDecimal BIGINT_CORRECTION = BIGINT_MAX_VALUE.add(BigDecimal.ONE);
 
-  private final boolean includeUnknownDatatypes;
-  private final boolean overrideDatetimeToNullable;
-  private final VitessConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode;
-  private final BinlogValueConverters binlogConverters;
+    private final boolean includeUnknownDatatypes;
+    private final boolean overrideDatetimeToNullable;
+    private final VitessConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode;
+    private final BinlogValueConverters binlogConverters;
 
-  private static final Pattern DATE_FIELD_PATTERN = Pattern.compile("([0-9]*)-([0-9]*)-([0-9]*)");
-  private static final Pattern TIME_FIELD_PATTERN = Pattern.compile("(\\-?[0-9]*):([0-9]*)(:([0-9]*))?(\\.([0-9]*))?");
-
-  private static JdbcValueConverters.BigIntUnsignedMode bigInt(VitessConnectorConfig.BigIntUnsignedHandlingMode mode) {
-    switch (mode) {
-      case PRECISE -> {
-        return BigIntUnsignedMode.PRECISE;
-      }
-      case LONG -> {
-        return BigIntUnsignedMode.LONG;
-      }
-      default -> {
-        LOGGER.warn("BigIntUnsignedMode of `{}` is not legal for use with " +
-                "Vitess; please specify one of `PRECISE` or `LONG` instead. Defaulting to `PRECISE`.", mode.name());
-        return BigIntUnsignedMode.PRECISE;
-      }
+    private static JdbcValueConverters.BigIntUnsignedMode bigInt(VitessConnectorConfig.BigIntUnsignedHandlingMode mode) {
+        switch (mode) {
+            case PRECISE -> {
+                return BigIntUnsignedMode.PRECISE;
+            }
+            case LONG -> {
+                return BigIntUnsignedMode.LONG;
+            }
+            default -> {
+                LOGGER.warn("BigIntUnsignedMode of `{}` is not legal for use with " +
+                        "Vitess; please specify one of `PRECISE` or `LONG` instead. Defaulting to `PRECISE`.", mode.name());
+                return BigIntUnsignedMode.PRECISE;
+            }
+        }
     }
-  }
 
-  public VitessValueConverter(
-          DecimalMode decimalMode,
-          TemporalPrecisionMode temporalPrecisionMode,
-          ZoneOffset defaultOffset,
-          BinaryHandlingMode binaryMode,
-          boolean includeUnknownDatatypes,
-          VitessConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode,
+    private static final Pattern DATE_FIELD_PATTERN = Pattern.compile("([0-9]*)-([0-9]*)-([0-9]*)");
+    private static final Pattern TIME_FIELD_PATTERN = Pattern.compile("(\\-?[0-9]*):([0-9]*)(:([0-9]*))?(\\.([0-9]*))?");
+    // VStream emits MySQL TIMESTAMP values as UTC strings ("yyyy-MM-dd HH:mm:ss" with optional fractional seconds)
+    private static final DateTimeFormatter TIMESTAMP_FIELD_FORMATTER = new DateTimeFormatterBuilder()
+            .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            .optionalStart()
+            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+            .optionalEnd()
+            .toFormatter();
+
+    public VitessValueConverter(
+                                DecimalMode decimalMode,
+                                TemporalPrecisionMode temporalPrecisionMode,
+                                ZoneOffset defaultOffset,
+                                BinaryHandlingMode binaryMode,
+                                boolean includeUnknownDatatypes,
+                                VitessConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode,
           boolean overrideDatetimeToNullable,
           @Nullable TemporalAdjuster adjuster,
           CommonConnectorConfig.EventConvertingFailureHandlingMode eventConvertingFailureHandlingMode,
           ServiceRegistry serviceRegistry) {
-    super(decimalMode, temporalPrecisionMode, defaultOffset, null, null, binaryMode);
-    this.includeUnknownDatatypes = includeUnknownDatatypes;
-    this.overrideDatetimeToNullable = overrideDatetimeToNullable;
-    this.bigIntUnsignedHandlingMode = bigIntUnsignedHandlingMode;
+        super(decimalMode, temporalPrecisionMode, defaultOffset, null, null, binaryMode);
+        this.includeUnknownDatatypes = includeUnknownDatatypes;
+        this.overrideDatetimeToNullable = overrideDatetimeToNullable;
+        this.bigIntUnsignedHandlingMode = bigIntUnsignedHandlingMode;
 
     // `BinlogValueConverters` requires an instance of `BinlogCharsetRegistry`; this is the implementation used by the
     // mysql adapter itself.
@@ -112,7 +122,7 @@ public class VitessValueConverter extends JdbcValueConverters {
       @Override
       protected List<String> extractEnumAndSetOptions(Column column) {
         return MySqlAntlrDdlParser.extractEnumAndSetOptions(column.enumValues());
-      }
+    }
     };
   }
 
@@ -125,43 +135,49 @@ public class VitessValueConverter extends JdbcValueConverters {
     return superBuilder;
   }
 
-  // Get Kafka connect schema from Debezium column.
-  @Override
-  public SchemaBuilder schemaBuilder(Column column) {
-    String typeName = column.typeName().toUpperCase();
-    if (matches(typeName, Query.Type.JSON.name())) {
-      return Json.builder();
-    }
-    if (matches(typeName, Query.Type.ENUM.name())) {
-      return io.debezium.data.Enum.builder(column.enumValues());
-    }
-    if (matches(typeName, Query.Type.SET.name())) {
-      return io.debezium.data.EnumSet.builder(column.enumValues());
-    }
-    if (matches(typeName, Query.Type.YEAR.name())) {
-      return Year.builder();
-    }
+    // Get Kafka connect schema from Debezium column.
+    @Override
+    public SchemaBuilder schemaBuilder(Column column) {
+        String typeName = column.typeName().toUpperCase();
+        if (matches(typeName, Query.Type.JSON.name())) {
+            return Json.builder();
+        }
+        if (matches(typeName, Query.Type.ENUM.name())) {
+            return io.debezium.data.Enum.builder(column.enumValues());
+        }
+        if (matches(typeName, Query.Type.SET.name())) {
+            return io.debezium.data.EnumSet.builder(column.enumValues());
+        }
+        if (matches(typeName, Query.Type.YEAR.name())) {
+            return Year.builder();
+        }
     if (matches(typeName, Query.Type.GEOMETRY.name())) {
       return io.debezium.data.geometry.Geometry.builder();
     }
 
-    if (matches(typeName, Query.Type.UINT64.name())) {
-      switch (bigIntUnsignedHandlingMode) {
-        case LONG:
-          return SchemaBuilder.int64();
-        case STRING:
-          return SchemaBuilder.string();
-        case PRECISE:
-          // In order to capture unsigned INT 64-bit data source, org.apache.kafka.connect.data.Decimal:Byte will be required to safely capture all valid values with scale of 0
-          // Source: https://kafka.apache.org/0102/javadoc/org/apache/kafka/connect/data/Schema.Type.html
-          return Decimal.builder(0);
-        default:
-          throw new IllegalArgumentException("Unknown bigIntUnsignedHandlingMode: " + bigIntUnsignedHandlingMode);
-      }
-    }
-    if (isTemporal(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.ISOSTRING)) {
-      return SchemaBuilder.string();
-    }
+        if (matches(typeName, Query.Type.UINT64.name())) {
+            switch (bigIntUnsignedHandlingMode) {
+                case LONG:
+                    return SchemaBuilder.int64();
+                case STRING:
+                    return SchemaBuilder.string();
+                case PRECISE:
+                    // In order to capture unsigned INT 64-bit data source, org.apache.kafka.connect.data.Decimal:Byte will be required to safely capture all valid values with scale of 0
+                    // Source: https://kafka.apache.org/0102/javadoc/org/apache/kafka/connect/data/Schema.Type.html
+                    return Decimal.builder(0);
+                default:
+                    throw new IllegalArgumentException("Unknown bigIntUnsignedHandlingMode: " + bigIntUnsignedHandlingMode);
+            }
+        }
+        if (isTemporal(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.ISOSTRING)) {
+            return SchemaBuilder.string();
+        }
+        // MySQL TIMESTAMP is mapped to Types.TIMESTAMP_WITH_TIMEZONE, for which JdbcValueConverters hardcodes
+        // ZonedTimestamp regardless of the configured time.precision.mode. Honor `connect` mode here so TIMESTAMP
+        // columns use Kafka Connect's Timestamp logical type (epoch millis), consistent with DATETIME.
+        if (isTimestamp(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.CONNECT)) {
+            return org.apache.kafka.connect.data.Timestamp.builder();
+        }
     // MySQL TIMESTAMP is mapped to Types.TIMESTAMP_WITH_TIMEZONE upstream, which JdbcValueConverters hardcodes to
     // ZonedTimestamp regardless of `time.precision.mode`. Honor `connect` mode here so the documented contract is
     // upheld (Kafka Connect's Timestamp logical type, epoch millis) for MySQL TIMESTAMP columns.
@@ -170,50 +186,53 @@ public class VitessValueConverter extends JdbcValueConverters {
     }
 
     final SchemaBuilder jdbcSchemaBuilder = superOrShimmedBuilder(column);
-    if (jdbcSchemaBuilder == null) {
-      return includeUnknownDatatypes ? SchemaBuilder.bytes() : null;
-    }
-    if (overrideDatetimeToNullable && isDateOrDateTime(typeName)) {
-      return jdbcSchemaBuilder.optional();
-    }
-    return jdbcSchemaBuilder;
-  }
-
-  public static boolean isDateOrDateTime(String typeName) {
-    return matches(typeName, Query.Type.DATETIME.name()) || matches(typeName, Query.Type.DATE.name());
-  }
-
-  /**
-   * Detect data types that are affected by {@link TemporalPrecisionMode}. Specifically, date, time, and datetime
-   * @param typeName
-   * @return if it is a temporal type
-   */
-  private static boolean isTemporal(String typeName) {
-    return matches(typeName, Query.Type.DATE.name()) ||
-            matches(typeName, Query.Type.TIME.name()) ||
-            matches(typeName, Query.Type.DATETIME.name());
-  }
-
-  private static boolean isTimestamp(String typeName) {
-    return matches(typeName, Query.Type.TIMESTAMP.name());
-  }
-
-  // Ported from upstream debezium/dbz#2191 (PR #293); this fork copy shades out upstream's
-  // VitessValueConverter, so the fix must be carried here.
-  @Override
-  protected ValueConverter convertBits(Column column, Field fieldDefn) {
-    // VStream sends raw bytes; convert BIT(1) to boolean as JdbcValueConverters expects,
-    // return BIT(N) as-is for Kafka Connect BYTES schema
-    return (data) -> {
-      if (data instanceof byte[] bytes) {
-        if (column.length() <= 1) {
-          return bytes.length > 0 && bytes[0] != 0;
+        if (jdbcSchemaBuilder == null) {
+            return includeUnknownDatatypes ? SchemaBuilder.bytes() : null;
         }
-        return bytes;
-      }
-      return super.convertBits(column, fieldDefn).convert(data);
-    };
-  }
+        if (overrideDatetimeToNullable && isDateOrDateTime(typeName)) {
+            return jdbcSchemaBuilder.optional();
+        }
+        return jdbcSchemaBuilder;
+    }
+
+    public static boolean isDateOrDateTime(String typeName) {
+        return matches(typeName, Query.Type.DATETIME.name()) || matches(typeName, Query.Type.DATE.name());
+    }
+
+    /**
+     * Detect data types that are affected by {@link TemporalPrecisionMode}. Specifically, date, time, and datetime
+     * @param typeName
+     * @return if it is a temporal type
+     */
+    private static boolean isTemporal(String typeName) {
+        return matches(typeName, Query.Type.DATE.name()) ||
+                matches(typeName, Query.Type.TIME.name()) ||
+                matches(typeName, Query.Type.DATETIME.name());
+    }
+
+    /**
+     * Detect the MySQL TIMESTAMP type, which {@link VitessType} maps to {@link java.sql.Types#TIMESTAMP_WITH_TIMEZONE}
+     * @param typeName
+     * @return if it is a timestamp type
+     */
+    private static boolean isTimestamp(String typeName) {
+        return matches(typeName, Query.Type.TIMESTAMP.name());
+    }
+
+    @Override
+    protected ValueConverter convertBits(Column column, Field fieldDefn) {
+        // VStream sends raw bytes; convert BIT(1) to boolean as JdbcValueConverters expects,
+        // return BIT(N) as-is for Kafka Connect BYTES schema
+        return (data) -> {
+            if (data instanceof byte[] bytes) {
+                if (column.length() <= 1) {
+                    return bytes.length > 0 && bytes[0] != 0;
+                }
+                return bytes;
+            }
+            return super.convertBits(column, fieldDefn).convert(data);
+        };
+    }
 
   // Implements additional type support for the Planetscale adapter.
   private @Nullable ValueConverter superOrShimmedConverter(Column inputColumn, Field fieldDefn) {
@@ -224,288 +243,366 @@ public class VitessValueConverter extends JdbcValueConverters {
     return superConverter;
   }
 
-  // Convert Java value to Kafka Connect value.
-  @Override
-  public ValueConverter converter(Column inputColumn, Field fieldDefn) {
-    String typeName = inputColumn.typeName().toUpperCase();
-    final Column column;
-    if (overrideDatetimeToNullable && isDateOrDateTime(typeName)) {
-      column = inputColumn.edit().optional(true).create();
-    }
-    else {
-      column = inputColumn;
-    }
-    if (matches(typeName, Query.Type.ENUM.name())) {
-      return (data) -> convertEnumToString(column.enumValues(), column, fieldDefn, data);
-    }
-    if (matches(typeName, Query.Type.SET.name())) {
-      return (data) -> convertSetToString(column.enumValues(), column, fieldDefn, data);
-    }
+    // Convert Java value to Kafka Connect value.
+    @Override
+    public ValueConverter converter(Column inputColumn, Field fieldDefn) {
+        String typeName = inputColumn.typeName().toUpperCase();
+        final Column column;
+        if (overrideDatetimeToNullable && isDateOrDateTime(typeName)) {
+            column = inputColumn.edit().optional(true).create();
+        }
+        else {
+            column = inputColumn;
+        }
+        if (matches(typeName, Query.Type.ENUM.name())) {
+            return (data) -> convertEnumToString(column.enumValues(), column, fieldDefn, data);
+        }
+        if (matches(typeName, Query.Type.SET.name())) {
+            return (data) -> convertSetToString(column.enumValues(), column, fieldDefn, data);
+        }
     if (matches(typeName, Query.Type.GEOMETRY.name())) {
       return (data) -> convertGeometry(column, fieldDefn, data);
     }
 
-    if (matches(typeName, Query.Type.UINT64.name())) {
-      switch (bigIntUnsignedHandlingMode) {
-        case LONG:
-          return (data) -> convertBigInt(column, fieldDefn, data);
-        case STRING:
-          return (data) -> convertString(column, fieldDefn, data);
-        case PRECISE:
-          // Convert BIGINT UNSIGNED internally from SIGNED to UNSIGNED based on the boundary settings
-          return (data) -> convertUnsignedBigint(column, fieldDefn, data);
-        default:
-          throw new IllegalArgumentException("Unknown bigIntUnsignedHandlingMode: " + bigIntUnsignedHandlingMode);
-      }
-    }
+        if (matches(typeName, Query.Type.UINT64.name())) {
+            switch (bigIntUnsignedHandlingMode) {
+                case LONG:
+                    return (data) -> convertBigInt(column, fieldDefn, data);
+                case STRING:
+                    return (data) -> convertString(column, fieldDefn, data);
+                case PRECISE:
+                    // Convert BIGINT UNSIGNED internally from SIGNED to UNSIGNED based on the boundary settings
+                    return (data) -> convertUnsignedBigint(column, fieldDefn, data);
+                default:
+                    throw new IllegalArgumentException("Unknown bigIntUnsignedHandlingMode: " + bigIntUnsignedHandlingMode);
+            }
+        }
 
-    if (isTemporal(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.ISOSTRING)) {
-      return (data) -> convertString(column, fieldDefn, data);
-    }
+        if (isTemporal(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.ISOSTRING)) {
+            return (data) -> convertString(column, fieldDefn, data);
+        }
+        if (isTimestamp(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.CONNECT)) {
+            return (data) -> convertTimestampToConnectDate(column, fieldDefn, data);
+        }
     if (isTimestamp(typeName) && temporalPrecisionMode.equals(TemporalPrecisionMode.CONNECT)) {
       return (data) -> convertTimestampToConnectDate(column, fieldDefn, data);
     }
 
     final ValueConverter jdbcConverter = superOrShimmedConverter(column, fieldDefn);
-    if (jdbcConverter == null) {
-      return includeUnknownDatatypes
-              ? data -> convertBinary(column, fieldDefn, data, binaryMode)
-              : null;
-    }
-    else {
-      return jdbcConverter;
-    }
-  }
-
-  /**
-   * Convert original value insertion of type 'BIGINT' into the correct BIGINT UNSIGNED representation
-   * Note: Unsigned BIGINT (64-bit) is represented in 'BigDecimal' data type. Reference: https://kafka.apache.org/0102/javadoc/org/apache/kafka/connect/data/Schema.Type.html
-   *
-   * @param originalNumber {@link BigDecimal} the original insertion value
-   * @return {@link BigDecimal} the correct representation of the original insertion value
-   */
-  protected static BigDecimal convertUnsignedBigint(BigDecimal originalNumber) {
-    if (originalNumber.compareTo(BigDecimal.ZERO) == -1) {
-      return originalNumber.add(BIGINT_CORRECTION);
-    }
-    else {
-      return originalNumber;
-    }
-  }
-
-  /**
-   * Convert the a value representing a Unsigned BIGINT value to the correct Unsigned INT representation.
-   *
-   * @param column the column in which the value appears
-   * @param fieldDefn the field definition for the SourceRecord's {@link Schema}; never null
-   * @param data the data; may be null
-   *
-   * @return the converted value, or null if the conversion could not be made and the column allows nulls
-   *
-   * @throws IllegalArgumentException if the value could not be converted but the column does not allow nulls
-   */
-  protected Object convertUnsignedBigint(Column column, Field fieldDefn, Object data) {
-    return convertValue(column, fieldDefn, data, 0L, (r) -> {
-      if (data instanceof BigDecimal) {
-        r.deliver(convertUnsignedBigint((BigDecimal) data));
-      }
-      else if (data instanceof Number) {
-        r.deliver(convertUnsignedBigint(new BigDecimal(((Number) data).toString())));
-      }
-      else if (data instanceof String) {
-        r.deliver(convertUnsignedBigint(new BigDecimal((String) data)));
-      }
-      else {
-        r.deliver(convertNumeric(column, fieldDefn, data));
-      }
-    });
-  }
-
-  /**
-   * Determine if the uppercase form of a column's type exactly matches or begins with the specified prefix.
-   * Note that this logic works when the column's {@link Column#typeName() type} contains the type name followed by parentheses.
-   *
-   * @param upperCaseTypeName the upper case form of the column's {@link Column#typeName() type name}
-   * @param upperCaseMatch the upper case form of the expected type or prefix of the type; may not be null
-   * @return {@code true} if the type matches the specified type, or {@code false} otherwise
-   */
-  protected static boolean matches(String upperCaseTypeName, String upperCaseMatch) {
-    if (upperCaseTypeName == null) {
-      return false;
-    }
-    return upperCaseMatch.equals(upperCaseTypeName) || upperCaseTypeName.startsWith(upperCaseMatch + "(");
-  }
-
-  /**
-   * Converts a value object for a MySQL {@code ENUM}, which is represented in the binlog events as an integer value containing
-   * the index of the enum option.
-   *
-   * @param options the characters that appear in the same order as defined in the column; may not be null
-   * @param column the column definition describing the {@code data} value; never null
-   * @param fieldDefn the field definition; never null
-   * @param data the data object to be converted into an {@code ENUM} literal String value
-   * @return the converted value, or empty string if the conversion could not be made
-   */
-  private Object convertEnumToString(List<String> options, Column column, Field fieldDefn, Object data) {
-    return convertValue(column, fieldDefn, data, "", (r) -> {
-      // The value has already been converted to a string so deliver as is
-      if (data instanceof String) {
-        r.deliver(data);
-        return;
-      }
-
-      // If we don't have options (list of values), we cannot look up an index value
-      if (options == null) {
-        r.deliver("");
-        return;
-      }
-
-      // The value is an 1-index int referring to the enum value
-      int value = ((Integer) data).intValue();
-      int index = value - 1; // 'options' is 0-based
-      // an invalid value was specified, which corresponds to the empty string '' and an index of 0
-      if (index < options.size() && index >= 0) {
-        r.deliver(options.get(index));
-      }
-      else {
-        r.deliver("");
-      }
-    });
-  }
-
-  /**
-   * Converts a value object for a MySQL {@code SET}, which is represented in the binlog events contain a long number in which
-   * every bit corresponds to a different option.
-   *
-   * @param options the characters that appear in the same order as defined in the column; may not be null
-   * @param column the column definition describing the {@code data} value; never null
-   * @param fieldDefn the field definition; never null
-   * @param data the data object to be converted into an {@code SET} literal String value
-   * @return the converted value, or empty string if the conversion could not be made
-   */
-  protected Object convertSetToString(List<String> options, Column column, Field fieldDefn, Object data) {
-    return convertValue(column, fieldDefn, data, "", (r) -> {
-      if (data instanceof String) {
-        // The value has already been converted to a string so deliver as is
-        r.deliver(data);
-      }
-      else {
-        // The binlog will contain a 64-bit bitmask with the indexes of the options in the set value ...
-        long indexes = ((Long) data).longValue();
-        r.deliver(convertSetValue(column, indexes, options));
-      }
-    });
-  }
-
-  protected String convertSetValue(Column column, long indexes, List<String> options) {
-    StringBuilder sb = new StringBuilder();
-    int index = 0;
-    boolean first = true;
-    int optionLen = options.size();
-    while (indexes != 0L) {
-      if ((indexes & 1) == 1) {
-        if (first) {
-          first = false;
+        if (jdbcConverter == null) {
+            return includeUnknownDatatypes
+                    ? data -> convertBinary(column, fieldDefn, data, binaryMode)
+                    : null;
         }
         else {
-          sb.append(',');
+            return jdbcConverter;
         }
-        if (index < optionLen) {
-          sb.append(options.get(index));
+    }
+
+    /**
+     * Convert original value insertion of type 'BIGINT' into the correct BIGINT UNSIGNED representation
+     * Note: Unsigned BIGINT (64-bit) is represented in 'BigDecimal' data type. Reference: https://kafka.apache.org/0102/javadoc/org/apache/kafka/connect/data/Schema.Type.html
+     *
+     * @param originalNumber {@link BigDecimal} the original insertion value
+     * @return {@link BigDecimal} the correct representation of the original insertion value
+     */
+    protected static BigDecimal convertUnsignedBigint(BigDecimal originalNumber) {
+        if (originalNumber.compareTo(BigDecimal.ZERO) == -1) {
+            return originalNumber.add(BIGINT_CORRECTION);
         }
         else {
-          logger.warn("Found unexpected index '{}' on column {}", index, column);
+            return originalNumber;
         }
-      }
-      ++index;
-      indexes = indexes >>> 1;
-    }
-    return sb.toString();
-  }
-
-  public static Duration stringToDuration(String timeString) {
-    Matcher matcher = TIME_FIELD_PATTERN.matcher(timeString);
-    if (!matcher.matches()) {
-      throw new DebeziumException("Unexpected format for TIME column: " + timeString);
     }
 
-    boolean isNegative = !timeString.isBlank() && timeString.charAt(0) == '-';
-
-    final long hours = Long.parseLong(matcher.group(1));
-    final long minutes = Long.parseLong(matcher.group(2));
-    final String secondsGroup = matcher.group(4);
-    long seconds = 0;
-    long nanoSeconds = 0;
-
-    if (secondsGroup != null) {
-      seconds = Long.parseLong(secondsGroup);
-      String microSecondsString = matcher.group(6);
-      if (microSecondsString != null) {
-        nanoSeconds = Long.parseLong(Strings.justifyLeft(microSecondsString, 9, '0'));
-      }
+    /**
+     * Convert the a value representing a Unsigned BIGINT value to the correct Unsigned INT representation.
+     *
+     * @param column the column in which the value appears
+     * @param fieldDefn the field definition for the SourceRecord's {@link Schema}; never null
+     * @param data the data; may be null
+     *
+     * @return the converted value, or null if the conversion could not be made and the column allows nulls
+     *
+     * @throws IllegalArgumentException if the value could not be converted but the column does not allow nulls
+     */
+    protected Object convertUnsignedBigint(Column column, Field fieldDefn, Object data) {
+        return convertValue(column, fieldDefn, data, 0L, (r) -> {
+            if (data instanceof BigDecimal) {
+                r.deliver(convertUnsignedBigint((BigDecimal) data));
+            }
+            else if (data instanceof Number) {
+                r.deliver(convertUnsignedBigint(new BigDecimal(((Number) data).toString())));
+            }
+            else if (data instanceof String) {
+                r.deliver(convertUnsignedBigint(new BigDecimal((String) data)));
+            }
+            else {
+                r.deliver(convertNumeric(column, fieldDefn, data));
+            }
+        });
     }
 
-    final Duration duration = hours >= 0
-            ? Duration
-            .ofHours(hours)
-            .plusMinutes(minutes)
-            .plusSeconds(seconds)
-            .plusNanos(nanoSeconds)
-            : Duration
-            .ofHours(hours)
-            .minusMinutes(minutes)
-            .minusSeconds(seconds)
-            .minusNanos(nanoSeconds);
-    return isNegative && !duration.isNegative() ? duration.negated() : duration;
-  }
-
-  /**
-   * Called for DATE type of MySQL. Converts the date to a LocalDate
-   *
-   * If the datetimeString cannot be represented by Timestamp, then it returns null.
-   * This happens if either month or day are equal to zero. Note: zero year can be represented by Timestamp.
-   *
-   * @param dateString The dateString to convert to a LocalDate
-   * @return LocalDate
-   */
-  public static LocalDate stringToLocalDate(String dateString) {
-    final Matcher matcher = DATE_FIELD_PATTERN.matcher(dateString);
-    if (!matcher.matches()) {
-      throw new RuntimeException("Unexpected format for DATE column: " + dateString);
+    /**
+     * Determine if the uppercase form of a column's type exactly matches or begins with the specified prefix.
+     * Note that this logic works when the column's {@link Column#typeName() type} contains the type name followed by parentheses.
+     *
+     * @param upperCaseTypeName the upper case form of the column's {@link Column#typeName() type name}
+     * @param upperCaseMatch the upper case form of the expected type or prefix of the type; may not be null
+     * @return {@code true} if the type matches the specified type, or {@code false} otherwise
+     */
+    protected static boolean matches(String upperCaseTypeName, String upperCaseMatch) {
+        if (upperCaseTypeName == null) {
+            return false;
+        }
+        return upperCaseMatch.equals(upperCaseTypeName) || upperCaseTypeName.startsWith(upperCaseMatch + "(");
     }
 
-    final int year = Integer.parseInt(matcher.group(1));
-    final int month = Integer.parseInt(matcher.group(2));
-    final int day = Integer.parseInt(matcher.group(3));
+    /**
+     * Converts a value object for a MySQL {@code ENUM}, which is represented in the binlog events as an integer value containing
+     * the index of the enum option.
+     *
+     * @param options the characters that appear in the same order as defined in the column; may not be null
+     * @param column the column definition describing the {@code data} value; never null
+     * @param fieldDefn the field definition; never null
+     * @param data the data object to be converted into an {@code ENUM} literal String value
+     * @return the converted value, or empty string if the conversion could not be made
+     */
+    private Object convertEnumToString(List<String> options, Column column, Field fieldDefn, Object data) {
+        return convertValue(column, fieldDefn, data, "", (r) -> {
+            // The value has already been converted to a string so deliver as is
+            if (data instanceof String) {
+                r.deliver(data);
+                return;
+            }
 
-    if (month == 0 || day == 0) {
-      // year == 0 is valid and can be represented by LocalDate
-      INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to empty value", dateString);
-      return null;
+            // If we don't have options (list of values), we cannot look up an index value
+            if (options == null) {
+                r.deliver("");
+                return;
+            }
+
+            // The value is an 1-index int referring to the enum value
+            int value = ((Integer) data).intValue();
+            int index = value - 1; // 'options' is 0-based
+            // an invalid value was specified, which corresponds to the empty string '' and an index of 0
+            if (index < options.size() && index >= 0) {
+                r.deliver(options.get(index));
+            }
+            else {
+                r.deliver("");
+            }
+        });
     }
-    return LocalDate.of(year, month, day);
-  }
 
-  /**
-   * Called for DATETIME type of MySQL. Converts the datetimeString to a Timestamp.
-   *
-   * If the datetimeString cannot be represented by Timestamp, then it returns null.
-   * This happens if either month or day are equal to zero. Note: zero year can be represented by Timestamp.
-   *
-   * @param datetimeString The String to convert
-   * @return The java.sql.Timestamp
-   */
-  public static Timestamp stringToTimestamp(String datetimeString) {
+    /**
+     * Converts a value object for a MySQL {@code SET}, which is represented in the binlog events contain a long number in which
+     * every bit corresponds to a different option.
+     *
+     * @param options the characters that appear in the same order as defined in the column; may not be null
+     * @param column the column definition describing the {@code data} value; never null
+     * @param fieldDefn the field definition; never null
+     * @param data the data object to be converted into an {@code SET} literal String value
+     * @return the converted value, or empty string if the conversion could not be made
+     */
+    protected Object convertSetToString(List<String> options, Column column, Field fieldDefn, Object data) {
+        return convertValue(column, fieldDefn, data, "", (r) -> {
+            if (data instanceof String) {
+                // The value has already been converted to a string so deliver as is
+                r.deliver(data);
+            }
+            else {
+                // The binlog will contain a 64-bit bitmask with the indexes of the options in the set value ...
+                long indexes = ((Long) data).longValue();
+                r.deliver(convertSetValue(column, indexes, options));
+            }
+        });
+    }
+
+    protected String convertSetValue(Column column, long indexes, List<String> options) {
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        boolean first = true;
+        int optionLen = options.size();
+        while (indexes != 0L) {
+            if ((indexes & 1) == 1) {
+                if (first) {
+                    first = false;
+                }
+                else {
+                    sb.append(',');
+                }
+                if (index < optionLen) {
+                    sb.append(options.get(index));
+                }
+                else {
+                    logger.warn("Found unexpected index '{}' on column {}", index, column);
+                }
+            }
+            ++index;
+            indexes = indexes >>> 1;
+        }
+        return sb.toString();
+    }
+
+    public static Duration stringToDuration(String timeString) {
+        Matcher matcher = TIME_FIELD_PATTERN.matcher(timeString);
+        if (!matcher.matches()) {
+            throw new DebeziumException("Unexpected format for TIME column: " + timeString);
+        }
+
+        boolean isNegative = !timeString.isBlank() && timeString.charAt(0) == '-';
+
+        final long hours = Long.parseLong(matcher.group(1));
+        final long minutes = Long.parseLong(matcher.group(2));
+        final String secondsGroup = matcher.group(4);
+        long seconds = 0;
+        long nanoSeconds = 0;
+
+        if (secondsGroup != null) {
+            seconds = Long.parseLong(secondsGroup);
+            String microSecondsString = matcher.group(6);
+            if (microSecondsString != null) {
+                nanoSeconds = Long.parseLong(Strings.justifyLeft(microSecondsString, 9, '0'));
+            }
+        }
+
+        final Duration duration = hours >= 0
+                ? Duration
+                        .ofHours(hours)
+                        .plusMinutes(minutes)
+                        .plusSeconds(seconds)
+                        .plusNanos(nanoSeconds)
+                : Duration
+                        .ofHours(hours)
+                        .minusMinutes(minutes)
+                        .minusSeconds(seconds)
+                        .minusNanos(nanoSeconds);
+        return isNegative && !duration.isNegative() ? duration.negated() : duration;
+    }
+
+    /**
+     * Called for DATE type of MySQL. Converts the date to a LocalDate
+     *
+     * If the datetimeString cannot be represented by Timestamp, then it returns null.
+     * This happens if either month or day are equal to zero. Note: zero year can be represented by Timestamp.
+     *
+     * @param dateString The dateString to convert to a LocalDate
+     * @return LocalDate
+     */
+    public static LocalDate stringToLocalDate(String dateString) {
+        final Matcher matcher = DATE_FIELD_PATTERN.matcher(dateString);
+        if (!matcher.matches()) {
+            throw new RuntimeException("Unexpected format for DATE column: " + dateString);
+        }
+
+        final int year = Integer.parseInt(matcher.group(1));
+        final int month = Integer.parseInt(matcher.group(2));
+        final int day = Integer.parseInt(matcher.group(3));
+
+        if (month == 0 || day == 0) {
+            // year == 0 is valid and can be represented by LocalDate
+            INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to empty value", dateString);
+            return null;
+        }
+        return LocalDate.of(year, month, day);
+    }
+
+    /**
+     * Called for DATETIME type of MySQL. Converts the datetimeString to a Timestamp.
+     *
+     * If the datetimeString cannot be represented by Timestamp, then it returns null.
+     * This happens if either month or day are equal to zero. Note: zero year can be represented by Timestamp.
+     *
+     * @param datetimeString The String to convert
+     * @return The java.sql.Timestamp
+     */
+    public static Timestamp stringToTimestamp(String datetimeString) {
+        final Matcher matcher = DATE_FIELD_PATTERN.matcher(datetimeString);
+        if (matcher.find()) {
+            final int month = Integer.parseInt(matcher.group(2));
+            final int day = Integer.parseInt(matcher.group(3));
+            if (month == 0 || day == 0) {
+                // Invalid dates with a zero month or day (e.g. 2024-01-00) cannot be represented
+                // by java.sql.Timestamp; match the stringToLocalDate handling and convert to null.
+                INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
+                return null;
+            }
+        }
+        return Timestamp.valueOf(datetimeString);
+    }
+
+    /**
+     * Converts a value object for an expected JDBC type of {@link java.sql.Types#TIMESTAMP_WITH_TIMEZONE}, which is
+     * the case for the MySQL TIMESTAMP type (in all time.precision.mode values except connect).
+     *
+     * VStream emits TIMESTAMP values as raw UTC strings, which {@code ZonedTimestamp.toIsoString} would otherwise
+     * pass through verbatim, so the emitted value would not be a valid ISO 8601 zoned timestamp. Parse the string
+     * into a {@link ZonedDateTime} first, mirroring the binlog-based MySQL connector, so the emitted value is
+     * ISO 8601 in UTC (e.g. 2020-02-13T01:02:03Z) as the {@link io.debezium.time.ZonedTimestamp} contract requires.
+     *
+     * @param column the column in which the value appears
+     * @param fieldDefn the field definition for the SourceRecord's {@link Schema}; never null
+     * @param data the data; may be null
+     *
+     * @return the converted value, or null if the conversion could not be made and the column allows nulls
+     */
+    @Override
+    protected Object convertTimestampWithZone(Column column, Field fieldDefn, Object data) {
+        Object value = data;
+        if (data instanceof String) {
+            try {
+                value = stringToZonedDateTime((String) data);
+            }
+            catch (DateTimeParseException e) {
+                INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", data);
+                value = null;
+            }
+        }
+        return super.convertTimestampWithZone(column, fieldDefn, value);
+    }
+
+    /**
+     * Called for TIMESTAMP type of MySQL. Converts the UTC string emitted by VStream to a {@link ZonedDateTime}
+     * in UTC, like the binlog-based MySQL connector's event deserializer does.
+     *
+     * If the datetimeString cannot be represented by a ZonedDateTime, then it returns null.
+     * This happens if either month or day are equal to zero, like the binlog-based MySQL connector's event
+     * deserializer does for values outside of the legal MySQL TIMESTAMP range.
+     *
+     * @param timestampString The String to convert
+     * @return The java.time.ZonedDateTime
+     */
+    public static ZonedDateTime stringToZonedDateTime(String timestampString) {
+        if (timestampString.matches("^\\d{4}-00-00.*$")) {
+            INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", timestampString);
+            return null;
+        }
+        return LocalDateTime.parse(timestampString, TIMESTAMP_FIELD_FORMATTER).atZone(ZoneOffset.UTC);
+    }
+
+    /**
+     * Called for TIMESTAMP type of MySQL when time.precision.mode is connect. Converts the UTC string emitted by
+     * VStream to a {@link java.util.Date} holding the corresponding epoch millis, the value type expected by Kafka
+     * Connect's {@link org.apache.kafka.connect.data.Timestamp} logical type.
+     *
+     * If the datetimeString cannot be represented by a Date, then it returns null.
+     * This happens if either month or day are equal to zero.
+     *
+     * @param datetimeString The String to convert
+     * @return The java.util.Date
+     */
+    public static Date stringToConnectDate(String datetimeString) {
     final Matcher matcher = DATE_FIELD_PATTERN.matcher(datetimeString);
     if (matcher.find()) {
       final int month = Integer.parseInt(matcher.group(2));
       final int day = Integer.parseInt(matcher.group(3));
       if (month == 0 || day == 0) {
-        INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
-        return null;
-      }
+            INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
+            return null;
+        }
     }
-    return Timestamp.valueOf(datetimeString);
+        return Date.from(LocalDateTime.parse(datetimeString, TIMESTAMP_FIELD_FORMATTER).toInstant(ZoneOffset.UTC));
   }
 
   // VStream emits MySQL TIMESTAMP as a UTC string ("yyyy-MM-dd HH:mm:ss[.fffffff]"). Parse it as UTC and return a
@@ -517,44 +614,6 @@ public class VitessValueConverter extends JdbcValueConverters {
           .appendFraction(java.time.temporal.ChronoField.NANO_OF_SECOND, 0, 9, true)
           .optionalEnd()
           .toFormatter();
-
-  public static Date stringToConnectDate(String datetimeString) {
-    if (datetimeString.matches("^\\d{4}-00-00.*$")) {
-      INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", datetimeString);
-      return null;
-    }
-    final LocalDateTime ldt = LocalDateTime.parse(datetimeString, TIMESTAMP_FORMATTER);
-    return Date.from(ldt.toInstant(ZoneOffset.UTC));
-  }
-
-  /**
-   * Convert a MySQL TIMESTAMP raw value into a {@link java.util.Date} suitable for Kafka Connect's
-   * {@link org.apache.kafka.connect.data.Timestamp} logical type. Accepts both the raw vstream string and any
-   * already-converted Date/Timestamp instance.
-   *
-   * The string value is parsed before being handed to {@code convertValue} so that the MySQL zero-date sentinel
-   * follows the same path as a DATETIME zero-date: null for optional columns, the schema default value or the
-   * epoch fallback for non-optional columns. Delivering nothing instead would route the sentinel through
-   * {@code handleUnknownData}, which throws for non-optional columns and would crash the pipeline.
-   */
-  protected Object convertTimestampToConnectDate(Column column, Field fieldDefn, Object data) {
-    Object value = data;
-    if (data instanceof String s) {
-      try {
-        value = stringToConnectDate(s);
-      }
-      catch (DateTimeParseException e) {
-        INVALID_VALUE_LOGGER.warn("Could not parse TIMESTAMP value '{}' for column {}", s, column.name());
-        value = null;
-      }
-    }
-    final Object parsed = value;
-    return convertValue(column, fieldDefn, parsed, new Date(0L), (r) -> {
-      if (parsed instanceof Date d) {
-        r.deliver(new Date(d.getTime()));
-      }
-    });
-  }
 
 
   /**
@@ -568,5 +627,38 @@ public class VitessValueConverter extends JdbcValueConverters {
    */
   protected Object convertGeometry(Column column, Field fieldDefn, Object data) {
     return data;
-  }
+    }
+
+    /**
+     * Convert a raw TIMESTAMP value into a {@link java.util.Date} suitable for Kafka Connect's
+     * {@link org.apache.kafka.connect.data.Timestamp} logical type.
+     *
+     * The string value is parsed before being handed to {@code convertValue} so that the MySQL zero-date sentinel
+     * follows the same path as a DATETIME zero-date: null for optional columns, the schema default value or the
+     * epoch fallback for non-optional columns.
+     *
+     * @param column the column in which the value appears
+     * @param fieldDefn the field definition for the SourceRecord's {@link Schema}; never null
+     * @param data the data; may be null
+     *
+     * @return the converted value, or null if the conversion could not be made and the column allows nulls
+     */
+    protected Object convertTimestampToConnectDate(Column column, Field fieldDefn, Object data) {
+        Object value = data;
+        if (data instanceof String) {
+            try {
+                value = stringToConnectDate((String) data);
+            }
+            catch (DateTimeParseException e) {
+                INVALID_VALUE_LOGGER.warn("Invalid value '{}' stored in column converted to null value", data);
+                value = null;
+            }
+        }
+        final Object parsed = value;
+        return convertValue(column, fieldDefn, parsed, new Date(0L), (r) -> {
+            if (parsed instanceof Date) {
+                r.deliver(parsed);
+            }
+        });
+    }
 }
