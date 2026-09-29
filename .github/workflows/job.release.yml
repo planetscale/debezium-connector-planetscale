@@ -27,7 +27,7 @@ jobs:
     # signs, attests, and publishes anything. The environment (with its reviewers and its
     # main + v* deployment policy) is configured in repository settings, not here.
     environment:
-      name: release
+      name: Release
       url: https://github.com/${{ github.repository }}/releases/tag/${{ inputs.tag }}
     permissions:
       contents: write
@@ -101,6 +101,9 @@ jobs:
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           tag_name: ${{ inputs.tag }}
+          # Publish explicitly: when a draft release already exists for the tag, the action
+          # otherwise preserves the existing draft state and the release never goes live.
+          draft: false
           generate_release_notes: true
           files: ${{ steps.checksums.outputs.staging }}/*
 
