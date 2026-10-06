@@ -97,10 +97,18 @@ jobs:
 
       # -- GitHub Release --
 
+      # Releases in this repository are immutable (GitHub immutable releases): once published,
+      # assets and the tag are locked and the tag name can never be reused. The action must
+      # therefore create the release as a draft, upload every asset, and only then publish it.
+      # action-gh-release does that since v2.5.0; v2.2.2 published first and the asset upload
+      # failed with "Cannot upload assets to an immutable release" (v3.2.7.Final-r1).
       - name: "Release: Create"
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ inputs.tag }}
+          # The tag is created from the commit this workflow ran for. Without this the action
+          # tags the repository default branch (main), which is wrong for 3.x release branches.
+          target_commitish: ${{ inputs.sha }}
           # Publish explicitly: when a draft release already exists for the tag, the action
           # otherwise preserves the existing draft state and the release never goes live.
           draft: false
