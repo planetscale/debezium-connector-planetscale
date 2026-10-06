@@ -1,8 +1,9 @@
 name: "Release"
 
+# Releases are cut by manual dispatch only. The release job itself creates the tag when it
+# publishes, so a `push: tags` trigger would start a second run for every release; that run
+# can only fail, because the release it would create already exists and is immutable.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
@@ -43,6 +44,6 @@ jobs:
       id-token: write
       attestations: write
     with:
-      # Tag push: the pushed tag. Manual dispatch: the tag given as input (never the branch name).
-      tag: ${{ inputs.tag || github.ref_name }}
+      # The tag given as input (never the branch name); created at the dispatched commit.
+      tag: ${{ inputs.tag }}
       sha: ${{ github.sha }}
