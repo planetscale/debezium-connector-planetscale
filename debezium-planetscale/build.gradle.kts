@@ -49,6 +49,11 @@ val debeziumConnectors: Configuration by configurations.creating
 val kafkaConnect: Configuration by configurations.creating {
   isCanBeResolved = true
   extendsFrom(configurations.runtimeClasspath.get(), configurations.compileClasspath.get())
+  // The Kafka Connect worker runtime must never ship inside a plugin: it is a Maven `provided`
+  // dependency of debezium-storage-kafka (via debezium-kafka-adapters), which Gradle maps onto the
+  // compile classpath that this configuration also copies. Drop it here, together with its web
+  // stack (Jersey, Jetty, HK2, ...), so `lib/` only carries what the connector needs at runtime.
+  exclude(group = "org.apache.kafka", module = "connect-runtime")
 }
 
 listOf(planetscaleAdapter, debeziumConnectors).forEach {
@@ -135,6 +140,9 @@ dependencies {
   testImplementation(libs.testcontainers.junit.jupiter)
   testImplementation(libs.testcontainers.core)
   testImplementation(libs.kotlin.test.junit5)
+  // 3.5.x+ no longer pulls the binlog connector onto the test runtime classpath transitively via the
+  // vitess connector; VitessValueConverter references BinlogValueConverters at class-load time.
+  testImplementation(debezium.connectors.binlog)
   testRuntimeOnly(libs.mysql.connector.j)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit.jupiter.engine)
@@ -192,12 +200,12 @@ val debeziumClasses by tasks.registering(Copy::class) {
   exclude("**/VitessReplicationConnection*") // fix: private `newChannel` override
   exclude("**/VitessValueConverter*") // fix: custom type support (geo)
   exclude("**/VitessDatabaseSchema*") // fix: custom type support (geo)
-  exclude("**/VitessConnectorConfig*") // fix: overrides for cell hint, etc
-  // fix: BIT columns silently dropped (upstream debezium/dbz#2191, merged for 3.7); drop these
-  // two excludes + fork copies once we build against a release that contains the fix.
-  exclude("**/VitessType*") // fix: BIT -> Types.BIT mapping with column width
-  exclude("**/connection/ReplicationMessageColumnValueResolver*") // fix: Types.BIT -> asBytes()
-  exclude("**/VitessMetadata*") // fix: backtick-quote keyspace identifiers (e.g. hyphenated names)
+  // NB: VitessConnectorConfig is NOT overridden on this line: upstream >= 3.7.0 contains vitess.cells /
+  // vitess.cell.preference (PR #300) and the config validation fixes (PR #295); the TLS/auth settings
+  // are read from the raw configuration by the Kotlin layer.
+  // NB: VitessType, ReplicationMessageColumnValueResolver and VitessMetadata are NOT overridden on
+  // this line: upstream >= 3.6.1 contains the BIT fix (debezium/dbz#2191) and >= 3.6.0 the
+  // identifier quoting (PR #286), so upstream's classes are used directly.
   finalizedBy(debeziumClassesPatched)
 }
 

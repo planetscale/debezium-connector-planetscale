@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
+import io.debezium.config.CommonConnectorConfig;
 import io.debezium.connector.vitess.Vgtid;
 import io.debezium.connector.vitess.VitessConnector;
 import io.debezium.connector.vitess.VitessConnectorConfig;
@@ -166,7 +167,8 @@ public class VitessReplicationConnection implements ReplicationConnection {
                 String msg = "Received duplicate BEGIN events";
                 // During a copy operation, we receive the duplicate event once when no record is copied.
                 String eventTypes = bufferedEvents.stream().map(VEvent::getType).map(Objects::toString).collect(Collectors.joining(", "));
-                if (eventTypes.equals("BEGIN, FIELD") || eventTypes.equals("BEGIN, FIELD, VGTID") || eventTypes.equals("COPY_COMPLETED, BEGIN, FIELD")) {
+                if (eventTypes.equals("BEGIN, FIELD") || eventTypes.equals("BEGIN, FIELD, VGTID") || eventTypes.equals("COPY_COMPLETED, BEGIN, FIELD")
+                        || eventTypes.equals("COPY_COMPLETED, BEGIN, FIELD, VGTID")) {
                   msg += String.format(" during a copy operation. No harm to skip the buffered events. Buffered event types: %s",
                           eventTypes);
                   LOGGER.info(msg);
@@ -292,12 +294,18 @@ public class VitessReplicationConnection implements ReplicationConnection {
 
     Vtgate.VStreamFlags.Builder vStreamFlagsBuilder = Vtgate.VStreamFlags.newBuilder()
             .setStopOnReshard(config.getStopOnReshard())
+            .setExcludeKeyspaceFromTableName(config.getExcludeKeyspaceFromTableName())
             .setHeartbeatInterval(getHeartbeatSeconds())
-            .setStreamKeyspaceHeartbeats(config.getStreamKeyspaceHeartbeats());
+            .setStreamKeyspaceHeartbeats(config.getStreamKeyspaceHeartbeats())
+            .setCellPreference(config.getCellPreference().getValue());
 
-    String cells = config.getCells();
-    if (!Strings.isNullOrEmpty(cells)) {
-      vStreamFlagsBuilder.setCells(cells);
+    if (!Strings.isNullOrEmpty(config.getCells())) {
+      vStreamFlagsBuilder.setCells(config.getCells());
+    }
+    if (!Strings.isNullOrEmpty(config.getConfig().getString(CommonConnectorConfig.SNAPSHOT_MODE_TABLES))) {
+      final List<String> allTables = new VitessMetadata(config).getTables();
+      List<String> tablesToCopy = VitessConnector.getTablesToCopyByPrefix(config, allTables);
+      vStreamFlagsBuilder.addAllTablesToCopy(tablesToCopy);
     }
     Vtgate.VStreamFlags vStreamFlags = vStreamFlagsBuilder.build();
 
