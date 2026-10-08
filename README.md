@@ -26,6 +26,13 @@ The build produces the following artifacts under `debezium-planetscale/build/`:
 | Debezium Server | `libs/planetscale-debezium-adapter-<version>-all.jar` | Fully |
 | Kafka Connect | `connect/dist/planetscale-debezium-connector-planetscale-<version>.zip` | Partially |
 
+> **Debezium Server 3.7 is not supported yet.** Debezium Server 3.7.0 only starts connectors that
+> were compiled into its distribution and silently ignores any other `connector.class`, so dropping
+> this connector into its `lib/` directory no longer works (upstream report:
+> [debezium/dbz#2801](https://github.com/debezium/dbz/issues/2801)). Use the 3.7 line with Kafka
+> Connect or Confluent, and stay on the [3.6.3 release](https://github.com/planetscale/debezium-connector-planetscale/releases/tag/v3.6.3.Final-r1)
+> for Debezium Server until the upstream fix ships.
+
 ## Run
 
 Use the Debezium Server helper in [`./server`](./server).
