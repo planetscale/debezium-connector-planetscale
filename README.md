@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/planetscale/debezium-connector-planetscale/actions/workflows/on.push.yml/badge.svg)](https://github.com/planetscale/debezium-connector-planetscale/actions/workflows/on.push.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-blue?style=flat&logoColor=white)
-![Debezium 3.2.1.Final](https://img.shields.io/badge/Debezium-3.2.1.Final-blue?style=flat&logoColor=white)
+![Debezium 3.7.1.Final](https://img.shields.io/badge/Debezium-3.7.1.Final-blue?style=flat&logoColor=white)
 [![License](https://img.shields.io/badge/license-Apache--2.0-brightgreen.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 This repository contains the [Debezium](https://debezium.io/) connector for PlanetScale. It is based on the [Debezium Vitess connector](https://debezium.io/documentation/reference/stable/connectors/vitess.html) and packages the PlanetScale-specific connector classes, patches, and runtime dependencies for Kafka Connect and Debezium Server.
@@ -26,12 +26,12 @@ The build produces the following artifacts under `debezium-planetscale/build/`:
 | Debezium Server | `libs/planetscale-debezium-adapter-<version>-all.jar` | Fully |
 | Kafka Connect | `connect/dist/planetscale-debezium-connector-planetscale-<version>.zip` | Partially |
 
-> **Debezium Server 3.7 is not supported yet.** Debezium Server 3.7.0 only starts connectors that
-> were compiled into its distribution and silently ignores any other `connector.class`, so dropping
-> this connector into its `lib/` directory no longer works (upstream report:
-> [debezium/dbz#2801](https://github.com/debezium/dbz/issues/2801)). Use the 3.7 line with Kafka
-> Connect or Confluent, and stay on the [3.6.3 release](https://github.com/planetscale/debezium-connector-planetscale/releases/tag/v3.6.3.Final-r1)
-> for Debezium Server until the upstream fix ships.
+> **Debezium Server:** 3.7.0.Final silently ignored external `connector.class` values
+> ([debezium/dbz#2801](https://github.com/debezium/dbz/issues/2801)). That is fixed in
+> **3.7.1.Final**, so this line works again with Debezium Server (drop the adapter jar into
+> `lib/` / use `EXTRA_CONNECTOR`) as well as Kafka Connect / Confluent. Stay on
+> [v3.6.3.Final-r1](https://github.com/planetscale/debezium-connector-planetscale/releases/tag/v3.6.3.Final-r1)
+> only if you must remain on Server 3.6.x.
 
 ## Run
 
