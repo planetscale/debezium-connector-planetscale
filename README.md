@@ -5,7 +5,7 @@
 
 [![CI](https://github.com/planetscale/debezium-connector-planetscale/actions/workflows/on.push.yml/badge.svg)](https://github.com/planetscale/debezium-connector-planetscale/actions/workflows/on.push.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-blue?style=flat&logoColor=white)
-![Debezium 3.7.1.Final](https://img.shields.io/badge/Debezium-3.7.1.Final-blue?style=flat&logoColor=white)
+![Debezium 3.8.0.Alpha1](https://img.shields.io/badge/Debezium-3.8.0.Alpha1-blue?style=flat&logoColor=white)
 [![License](https://img.shields.io/badge/license-Apache--2.0-brightgreen.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 This repository contains the [Debezium](https://debezium.io/) connector for PlanetScale. It is based on the [Debezium Vitess connector](https://debezium.io/documentation/reference/stable/connectors/vitess.html) and packages the PlanetScale-specific connector classes, patches, and runtime dependencies for Kafka Connect and Debezium Server.
