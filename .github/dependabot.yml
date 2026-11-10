@@ -2,15 +2,72 @@ version: 2
 updates:
   - package-ecosystem: "gradle"
     directory: "/"
-    rebase-strategy: "disabled"
+    target-branch: "main"
     schedule:
-        interval: "weekly"
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
     cooldown:
-        default-days: 14
+      default-days: 7
+      # Semver majors need a human look; give them longer cool-down.
+      semver-major-days: 14
+    labels:
+      - "dependencies"
+      - "java"
+    commit-message:
+      prefix: "chore(deps)"
+    # Upstream-tracked pins: never let Dependabot drift these away from the
+    # Debezium BOM / vitess-connector pom we follow in release bumps.
+    ignore:
+      - dependency-name: "io.debezium:*"
+      - dependency-name: "io.vitess:vitess-grpc-client"
+      - dependency-name: "io.grpc:*"
+      - dependency-name: "com.google.protobuf:*"
+      # Version catalog aliases used by this repo (Dependabot matches both).
+      - dependency-name: "debezium"
+      - dependency-name: "vitess-client"
+      - dependency-name: "grpc"
+      - dependency-name: "netty"          # Kafka/Debezium-aligned; bump with upstream
+      - dependency-name: "tcnative"
+      - dependency-name: "kafka-connect-api"
+    # Optional: after the first clean weekly run, consider grouping minors:
+    # groups:
+    #   kotlin-ecosystem:
+    #     patterns:
+    #       - "org.jetbrains.kotlin*"
+    #       - "org.jetbrains.kotlinx*"
+    #       - "kotlin"
+    #       - "kotlinx-*"
+    #     update-types:
+    #       - "minor"
+    #       - "patch"
+
   - package-ecosystem: "github-actions"
     directory: "/"
-    rebase-strategy: "disabled"
+    target-branch: "main"
     schedule:
-        interval: "weekly"
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
     cooldown:
-        default-days: 14
+      default-days: 7
+      semver-major-days: 14
+    labels:
+      - "dependencies"
+      - "github_actions"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Majors stay ungrouped so Shadow-style / Node-24 runner bumps are explicit.
