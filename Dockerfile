@@ -1,4 +1,4 @@
-ARG DEBEZIUM_VERSION=3.7
+ARG DEBEZIUM_VERSION=3.8
 FROM quay.io/debezium/server:${DEBEZIUM_VERSION}
 
 LABEL org.opencontainers.image.source="https://github.com/planetscale/debezium-connector-planetscale"
