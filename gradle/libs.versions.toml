@@ -10,7 +10,7 @@ bytebuddy = "1.18.3"
 commons-math3 = "3.6.1"
 googleJavaFormat = "1.28.0"
 mysql-connector-j = "9.2.0"
-grpc = "1.56.1"
+grpc = "1.80.0"
 guava = "33.4.8-jre"
 junit-jupiter-engine = "6.0.1"
 kafka-connect-api = "3.9.0"
@@ -31,7 +31,7 @@ spdx = "0.9.0"
 spotless = "7.2.1"
 testcontainers = "1.21.4"
 testlogger = "4.0.0"
-vitess-client = "23.0.0-rc1"
+vitess-client = "24.0.5"
 
 [libraries]
 bytebuddy = { module = "net.bytebuddy:byte-buddy", version.ref = "bytebuddy" }
