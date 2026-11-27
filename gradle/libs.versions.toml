@@ -6,7 +6,7 @@
 #
 
 [versions]
-bytebuddy = "1.18.3"
+bytebuddy = "1.18.17"
 commons-math3 = "3.6.1"
 googleJavaFormat = "1.28.0"
 mysql-connector-j = "9.2.0"
