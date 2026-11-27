@@ -10,6 +10,9 @@ devcontainer: &devcontainer
 deps: &deps
   - *base
   - "gradle/*.toml"
+  - "gradle/wrapper/**"
+  - "gradlew"
+  - "gradlew.bat"
   - "package.json"
   - "bun.lock"
   - "**/*.lockfile"
