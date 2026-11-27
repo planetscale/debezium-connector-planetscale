@@ -26,6 +26,9 @@ updates:
       - dependency-name: "io.vitess:vitess-grpc-client"
       - dependency-name: "io.grpc:*"
       - dependency-name: "com.google.protobuf:*"
+      # Dependabot matched the Maven coordinate, not the "netty" catalog alias
+      # below, when it opened #77. Covers netty and netty-tcnative.
+      - dependency-name: "io.netty:*"
       # Version catalog aliases used by this repo (Dependabot matches both).
       - dependency-name: "debezium"
       - dependency-name: "vitess-client"
