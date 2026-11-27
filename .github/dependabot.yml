@@ -26,6 +26,8 @@ updates:
       - dependency-name: "io.vitess:vitess-grpc-client"
       - dependency-name: "io.grpc:*"
       - dependency-name: "com.google.protobuf:*"
+      # netty and netty-tcnative, by coordinate like the pins above.
+      - dependency-name: "io.netty:*"
       # Version catalog aliases used by this repo (Dependabot matches both).
       - dependency-name: "debezium"
       - dependency-name: "vitess-client"
@@ -56,8 +58,9 @@ updates:
     open-pull-requests-limit: 5
     rebase-strategy: "auto"
     cooldown:
+      # No semver-major-days here: it is not supported for github-actions,
+      # and setting it makes Dependabot reject the whole file.
       default-days: 7
-      semver-major-days: 14
     labels:
       - "dependencies"
       - "github_actions"
