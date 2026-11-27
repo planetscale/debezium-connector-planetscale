@@ -28,6 +28,10 @@ updates:
       - dependency-name: "com.google.protobuf:*"
       # netty and netty-tcnative, by coordinate like the pins above.
       - dependency-name: "io.netty:*"
+      # Debezium pins the MySQL driver (version.mysql.driver); Kafka is
+      # aligned with the Connect runtime. Bump both with upstream.
+      - dependency-name: "com.mysql:mysql-connector-j"
+      - dependency-name: "org.apache.kafka:connect-api"
       # Version catalog aliases used by this repo (Dependabot matches both).
       - dependency-name: "debezium"
       - dependency-name: "vitess-client"
