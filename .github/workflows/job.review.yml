@@ -69,7 +69,7 @@ jobs:
           java-version: ${{ vars.JAVA_TOOLCHAIN_VERSION || '25' }}
           distribution: ${{ vars.JAVA_TOOLCHAIN_VENDOR || 'zulu' }}
       - name: "Setup: Gradle"
-        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v4
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v4
         with:
           dependency-graph: ${{ inputs.graph || 'disabled' }}
           dependency-graph-continue-on-failure: 'true'
